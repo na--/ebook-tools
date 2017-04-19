@@ -2,15 +2,101 @@
 
 set -euo pipefail
 
-VERBOSE=1
+OUTPUT_FOLDER="$(pwd)"
+OUTPUT_FOLDER_SEPARATE_UNSURE=false
+OUTPUT_FOLDER_UNSURE="$(pwd)"
 ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
 ISBN_IGNORED_FILES='^image/(png|jpeg|gif)$'
+LINK_ONLY=false
+FORCE_OVERWRITE=false
+VERBOSE=false
+DEBUG_PREFIX_LENGTH=40
 
+for i in "$@"; do
+	case $i in
+		-o=*|--output-sure=*)
+			OUTPUT_FOLDER="${i#*=}"
+			if [[ "$OUTPUT_FOLDER_SEPARATE_UNSURE" == false ]]; then
+				OUTPUT_FOLDER_UNSURE="${i#*=}"
+			fi
+			shift # past argument=value
+		;;
+		-ou=*|--output-unsure=*)
+			OUTPUT_FOLDER_SEPARATE_UNSURE=true
+			OUTPUT_FOLDER_UNSURE="${i#*=}"
+			shift # past argument=value
+		;;
+		--isbn-direct-grep-files=*)
+			ISBN_DIRECT_GREP_FILES="${i#*=}"
+			shift # past argument=value
+		;;
+		--isbn-extraction-ignore=*)
+			ISBN_IGNORED_FILES="${i#*=}"
+			shift # past argument=value
+		;;
+		-l|--link-only)
+			LINK_ONLY=true
+			shift # past argument with no value
+		;;
+		-f|--force)
+			FORCE_OVERWRITE=true
+			shift # past argument with no value
+		;;
+		-v|--verbose)
+			VERBOSE=true
+			shift # past argument with no value
+		;;
+		--debug-prefix-length=*)
+			DEBUG_PREFIX_LENGTH="${i#*=}"
+			shift # past argument=value
+		;;
+		*)
+			break
+		;;
+	esac
+done
+
+# If the VERBOSE flag is on, outputs the arguments to stderr
 decho () {
-	if [[ "$VERBOSE" == "1" ]]; then
+	if [[ "$VERBOSE" == true ]]; then
 		echo "$@" >&2
 	fi
 }
+
+# If the VERBOSE flag is on, prefixes the stdin with the supplied prefix
+# (shortened/padded or not) and outputs the result to stderr
+#
+# Arguments:
+#	prefix
+#	should_fit: whether to shorten or pad the prefix so
+#		it fits in DEBUG_PREFIX_LENGTH; false by default)
+#	...: everything else is passed to the fmt command
+debug_prefixer() {
+	local prefix
+	if [[ "$#" -gt 1 ]]; then
+		if [[ "$2" == true ]]; then
+			if (( ${#1} > DEBUG_PREFIX_LENGTH )); then
+				prefix="${1:0:10}..${1:(-$((DEBUG_PREFIX_LENGTH-12)))}"
+			else
+				prefix="$(printf "%-${DEBUG_PREFIX_LENGTH}s" "$1")"
+			fi
+		else
+			prefix="$1"
+		fi
+		shift
+	else
+		prefix="$1"
+	fi
+	shift
+
+	( if [[ "$#" != "0" ]]; then fmt "$@"; else cat; fi ) |
+	while IFS= read -r line; do
+		if [[ "$VERBOSE" == true ]]; then
+			decho "${prefix}${line}"
+		fi
+	done
+}
+
 
 # Validates ISBN-10 and ISBN-13 numbers
 is_isbn_valid() {
@@ -75,12 +161,17 @@ move_to_organized() {
 	decho TODO get isbns, authors, title, etc from opf file; move book to folder
 }
 
+# Tries to convert the supplied ebook file into .txt. It uses calibre's
+# ebook-convert tool. For optimization, if present, it will use pdftotext
+# for pdfs.
+#
+# Arguments: input path, output path (shloud have .txt extension), mimetype
 convert_to_txt() {
-	#args: input filename, output filename, mimetype
-	case "$3" in
-		application/pdf ) pdftotext "$1" "$2";;
-		*) ebook-convert "$1" "$2";;
-	esac
+	if [[ "$3" == "application/pdf" ]] && command -v pdftotext >/dev/null 2>&1; then
+		pdftotext "$1" "$2"
+	else
+		ebook-convert "$1" "$2"
+	fi
 }
 
 search_file_for_isbns() {
@@ -114,7 +205,8 @@ search_file_for_isbns() {
 
 	local ebookmeta
 	ebookmeta="$(ebook-meta "$1")"
-	decho -e "Ebook metadata:\n\t${ebookmeta/$'\n'/'\n\t'}"
+	decho "Ebook metadata:"
+	echo "$ebookmeta" | debug_prefixer "	" false --width=80 -t
 	isbns="$(echo "$ebookmeta" | find_isbns)"
 	if [[ "$isbns" != "" ]]; then
 		decho "Extracted ISBNs '$isbns' from calibre ebook metadata!"
@@ -127,11 +219,11 @@ search_file_for_isbns() {
 	local tmpdir
 	tmpdir="$(mktemp -d)"
 	decho "Created a temporary folder '$tmpdir'"
-	if 7z x -o"$tmpdir" "$1" >&2; then
+	if 7z x -o"$tmpdir" "$1" 2>&1 | debug_prefixer "[7zx] " false --width=80 -s; then
 		decho "Archive extracted successfully in $tmpdir, scanning contents recursively..."
 		while IFS= read -r -d '' file_to_check; do
 			decho "Searching '$file_to_check' for ISBNs..."
-			isbns="$(search_file_for_isbns "$file_to_check")"
+			isbns="$(search_file_for_isbns "$file_to_check" 2> >(debug_prefixer "[${file_to_check#$tmpdir}] " true >&2) )"
 			if [[ "$isbns" != "" ]]; then
 				decho "Found ISBNs $isbns!"
 				echo -n "$isbns"
@@ -150,7 +242,7 @@ search_file_for_isbns() {
 	local tmptxtfile
 	tmptxtfile="$(mktemp --suffix='.txt')"
 	decho "Converting ebook to text format in file '$tmptxtfile'..."
-	if convert_to_txt "$1" "$tmptxtfile" "$mimetype" >&2; then
+	if convert_to_txt "$1" "$tmptxtfile" "$mimetype" 2>&1 | debug_prefixer "[ebook2txt] " false --width=80 -s; then
 		decho "Conversion is done, trying to find ISBNs in the text output..."
 		isbns="$(find_isbns < "$tmptxtfile")"
 		if [[ "$isbns" != "" ]]; then
@@ -172,14 +264,15 @@ search_file_for_isbns() {
 }
 
 organize_file() {
-	local isbns
+	decho "Found file '$file_to_check', trying to organize..."
 
+	local isbns
 	isbns="$(search_file_for_isbns "$1")"
 	if [[ "$isbns" != "" ]]; then
-		echo "Organizing '$1' by ISBNs '$isbns'!"
+		decho "Organizing '$1' by ISBNs '$isbns'!"
 		organize_by_isbns "$isbns" "$1"
 	else
-		echo "No ISBNs found for '$1', organizing by filename..."
+		decho "No ISBNs found for '$1', organizing by filename..."
 		organize_by_filename_and_meta "$1"
 	fi
 }
@@ -189,8 +282,7 @@ for fpath in "$@"; do
 	decho "Recursively scanning '$fpath' for files"
 	find "$fpath" -type f  -print0 | sort -z | while IFS= read -r -d '' file_to_check
 	do
-		decho "Found file '$file_to_check', trying to organize..."
-		organize_file "$file_to_check"
+		organize_file "$file_to_check" 2> >(debug_prefixer "[$file_to_check] " true >&2)
 	done
 done
 
