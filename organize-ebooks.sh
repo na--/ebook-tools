@@ -10,6 +10,7 @@ ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
 ISBN_IGNORED_FILES='^image/(png|jpeg|gif)$'
 #shellcheck disable=SC2016
 FILENAME_TEMPLATE='"${d[AUTHORS]/ & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -} ${d[PUBLISHED]+(${d[PUBLISHED]%%-*}) }[${d[ISBN]}].${d[EXT]}"'
+STDOUT_TEMPLATE='-e "from:\t${current_path}\nto:\t${new_name}\n"'
 SYMLINK_ONLY=false
 DELETE_METADATA=false
 METADATA_EXTENSION="meta"
@@ -91,9 +92,7 @@ debug_prefixer() {
 
 	( if [[ "$#" != "0" ]]; then fmt "$@"; else cat; fi ) |
 	while IFS= read -r line || [[ -n "$line" ]] ; do
-		if [[ "$VERBOSE" == true ]]; then
-			decho "${prefix}${line}"
-		fi
+		decho "${prefix}${line}"
 	done
 }
 
@@ -148,10 +147,12 @@ find_isbns() {
 
 # Arguments:
 #	is_sure: whether we are relatively sure of the book metadata accuracy
-# 	book_path: the path to book file
+# 	current_path: the path to book file
 #	metadata_path: the path to the metadata file
 move_or_link_ebook_file_and_metadata() {
-	declare -A d=( ["EXT"]="${2##*.}" ) # metadata and the file extension
+	local current_path
+	current_path="$2"
+	declare -A d=( ["EXT"]="${current_path##*.}" ) # metadata and the file extension
 
 	while IFS='' read -r line || [[ -n "$line" ]]; do
 		d["$(echo "${line%%:*}" | sed -e 's/[ \t]*$//' -e 's/ /_/g' -e 's/[^a-zA-Z0-9_]//g' -e 's/\(.*\)/\U\1/')"]="$(echo "${line#*: }" | sed -e 's/[\\/\*\?<>\|\x01-\x1F\x7F]/_/g' )"
@@ -165,9 +166,7 @@ move_or_link_ebook_file_and_metadata() {
 
 	local new_name
 	new_name="$(eval echo "$FILENAME_TEMPLATE")"
-	decho "====================================================="
-	decho "The new file name of the book file/link '$2' will be: '$new_name'"
-
+	decho "The new file name of the book file/link '$current_path' will be: '$new_name'"
 
 	local new_path
 	if [[ "$1" == true ]]; then
@@ -175,6 +174,8 @@ move_or_link_ebook_file_and_metadata() {
 	else
 		new_path="$OUTPUT_FOLDER_UNSURE/$new_name"
 	fi
+
+	eval echo "$STDOUT_TEMPLATE"
 
 	if [[ -e "$new_path" ]]; then
 		if [[ "$FORCE_OVERWRITE" == true ]]; then
@@ -189,11 +190,11 @@ move_or_link_ebook_file_and_metadata() {
 	[ $DRY_RUN ] && decho "(DRY RUN! All operations except metadata deletion are skipped!)"
 
 	if [[ "$SYMLINK_ONLY" == true ]]; then
-		decho "Symlinking file '$2' to '$new_path'..."
-		[ $DRY_RUN ] || ln -s "$(realpath "$2")" "$new_path"
+		decho "Symlinking file '$current_path' to '$new_path'..."
+		[ $DRY_RUN ] || ln -s "$(realpath "$current_path")" "$new_path"
 	else
-		decho "Moving file '$2' to '$new_path'..."
-		[ $DRY_RUN ] || mv "$2" "$new_path"
+		decho "Moving file '$current_path' to '$new_path'..."
+		[ $DRY_RUN ] || mv "$current_path" "$new_path"
 	fi
 
 	if [[ "$DELETE_METADATA" == true ]]; then
@@ -220,7 +221,7 @@ organize_by_isbns() {
 		tmpmfile="$(mktemp --suffix='.txt')"
 		decho "Trying to fetch metadata for ISBN '$isbn' into temp file '$tmpmfile'..."
 		#TODO: download cover?
-		if fetch-ebook-metadata --verbose --isbn="$isbn" | grep -E '[a-zA-Z()]+ +: .*'  > "$tmpmfile" 2> >(debug_prefixer "[fetch-meta] " 0 --width=80 -s >&2); then
+		if fetch-ebook-metadata --verbose --isbn="$isbn" 2> >(debug_prefixer "[fetch-meta] " 0 --width=80 -s) | grep -E '[a-zA-Z()]+ +: .*'  > "$tmpmfile"; then
 			sleep 0.1
 			decho "Successfully fetched metadata: "
 			debug_prefixer "[meta] " 0 --width=100 -t < "$tmpmfile"
@@ -245,6 +246,7 @@ organize_by_isbns() {
 # Arguments: filename
 organize_by_filename_and_meta() {
 	decho "TODO: organizing ebook $1 by the filename and metadata! TODO split filename into words, extract metadata stuff if present try to get the opf from the filename, but move it to a 'to check' folder if successful"
+	echo "SKIP:\t$1"
 }
 
 
@@ -310,7 +312,7 @@ search_file_for_isbns() {
 		decho "Archive extracted successfully in $tmpdir, scanning contents recursively..."
 		while IFS= read -r -d '' file_to_check; do
 			#decho "Searching '$file_to_check' for ISBNs..."
-			isbns="$(search_file_for_isbns "$file_to_check" 2> >(debug_prefixer "[${file_to_check#$tmpdir}] " "$DEBUG_PREFIX_LENGTH" >&2) )"
+			isbns="$(search_file_for_isbns "$file_to_check" 2> >(debug_prefixer "[${file_to_check#$tmpdir}] " "$DEBUG_PREFIX_LENGTH") )"
 			if [[ "$isbns" != "" ]]; then
 				decho "Found ISBNs $isbns!"
 				echo -n "$isbns"
@@ -363,6 +365,7 @@ organize_file() {
 		decho "No ISBNs found for '$1', organizing by filename and metadata..."
 		organize_by_filename_and_meta "$1"
 	fi
+	decho "====================================================="
 }
 
 
@@ -370,7 +373,7 @@ for fpath in "$@"; do
 	decho "Recursively scanning '$fpath' for files"
 	find "$fpath" -type f  -print0 | sort -z | while IFS= read -r -d '' file_to_check
 	do
-		organize_file "$file_to_check" 2> >(debug_prefixer "[$file_to_check] " "$DEBUG_PREFIX_LENGTH" >&2)
+		organize_file "$file_to_check" 2> >(debug_prefixer "[$file_to_check] " "$DEBUG_PREFIX_LENGTH")
 	done
 done
 
