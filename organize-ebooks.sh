@@ -9,9 +9,9 @@ ISBN_REGEX='\b(978|979)?(([ -]?[0-9][ -]?){9}[0-9xX])\b'
 ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
 ISBN_IGNORED_FILES='^image/(png|jpeg|gif)$'
 #shellcheck disable=SC2016
-FILENAME_TEMPLATE='"${d[AUTHORS]/ & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -} ${d[PUBLISHED]+(${d[PUBLISHED]%%-*}) }[${d[ISBN]}].${d[EXT]}"'
+FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -} ${d[PUBLISHED]+(${d[PUBLISHED]%%-*}) }[${d[ISBN]}].${d[EXT]}"'
 #shellcheck disable=SC2016
-STDOUT_TEMPLATE='-e "from:\t${current_path}\nto:\t${new_path#${OUTPUT_FOLDER}/}\n"'
+STDOUT_TEMPLATE='-e "from:\t${current_path}\nto:\t${new_path}\n"'
 SYMLINK_ONLY=false
 DELETE_METADATA=false
 METADATA_EXTENSION="meta"
@@ -154,7 +154,7 @@ move_or_link_ebook_file_and_metadata() {
 	declare -A d=( ["EXT"]="${current_path##*.}" ) # metadata and the file extension
 
 	while IFS='' read -r line || [[ -n "$line" ]]; do
-		d["$(echo "${line%%:*}" | sed -e 's/[ \t]*$//' -e 's/ /_/g' -e 's/[^a-zA-Z0-9_]//g' -e 's/\(.*\)/\U\1/')"]="$(echo "${line#*: }" | sed -e 's/[\\/\*\?<>\|\x01-\x1F\x7F]/_/g' )"
+		d["$(echo "${line%%:*}" | sed -e 's/[ \t]*$//' -e 's/ /_/g' -e 's/[^a-zA-Z0-9_]//g' -e 's/\(.*\)/\U\1/')"]="$(echo "${line#*: }" | sed -e 's/[\\/\*\?<>\|\x01-\x1F\x7F]/_/g' | cut -c 1-120 )"
 	done < "$3"
 
 	decho "Variables that will be used for the new filename construction:"
@@ -193,7 +193,7 @@ move_or_link_ebook_file_and_metadata() {
 		$DRY_RUN || ln -s "$(realpath "$current_path")" "$new_path"
 	else
 		decho "Moving file '$current_path' to '$new_path'..."
-		$DRY_RUN || mv "$current_path" "$new_path"
+		$DRY_RUN || mv --no-clobber "$current_path" "$new_path"
 	fi
 
 	if [[ "$DELETE_METADATA" == true ]]; then
@@ -201,10 +201,10 @@ move_or_link_ebook_file_and_metadata() {
 		rm "$3"
 	else
 		decho "Moving metadata file '$3' to '${new_path}.${METADATA_EXTENSION}'..."
-		if [[ "$DRY_RUN" == true ]]; then
-			rm "$3"
+		if [[ "$DRY_RUN" != true ]]; then
+			mv --no-clobber "$3" "${new_path}.${METADATA_EXTENSION}"
 		else
-			mv "$3" "${new_path}.${METADATA_EXTENSION}"
+			rm "$3"
 		fi
 	fi
 }
@@ -356,7 +356,8 @@ organize_file() {
 	isbns="$(search_file_for_isbns "$1")"
 	if [[ "$isbns" != "" ]]; then
 		decho "Organizing '$1' by ISBNs '$isbns'!"
-		if ! organize_by_isbns "$1" "$isbns"; then
+		organize_by_isbns "$1" "$isbns"
+		if [[ "$?" != "0" ]]; then
 			decho "Could not organize via the found ISBNs, organizing by filename and metadata instead..."
 			organize_by_filename_and_meta "$1"
 		fi
