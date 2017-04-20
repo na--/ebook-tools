@@ -234,12 +234,14 @@ organize_by_isbns() {
 
 			decho "Organizing '$1' (with '$tmpmfile')..."
 			move_or_link_ebook_file_and_metadata true "$1" "$tmpmfile"
-			return 0
+			return
 		fi
 		decho "Removing temp file '$tmpmfile'..."
 		rm "$tmpmfile"
 	done
-	return 1
+
+	decho "Could not organize via the found ISBNs, organizing by filename and metadata instead..."
+	organize_by_filename_and_meta "$1"
 }
 
 # Arguments: filename
@@ -334,7 +336,7 @@ search_file_for_isbns() {
 		decho "Conversion is done, trying to find ISBNs in the text output..."
 		isbns="$(find_isbns < "$tmptxtfile")"
 		if [[ "$isbns" != "" ]]; then
-			decho "Extracted ISBNs '$isbns' directly from the converted text output!"
+			decho "Extracted ISBNs '$isbns' from the converted text output!"
 			echo -n "$isbns"
 			decho "Removing '$tmptxtfile'..."
 			rm "$tmptxtfile"
@@ -357,10 +359,6 @@ organize_file() {
 	if [[ "$isbns" != "" ]]; then
 		decho "Organizing '$1' by ISBNs '$isbns'!"
 		organize_by_isbns "$1" "$isbns"
-		if [[ "$?" != "0" ]]; then
-			decho "Could not organize via the found ISBNs, organizing by filename and metadata instead..."
-			organize_by_filename_and_meta "$1"
-		fi
 	else
 		decho "No ISBNs found for '$1', organizing by filename and metadata..."
 		organize_by_filename_and_meta "$1"
