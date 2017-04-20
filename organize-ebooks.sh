@@ -10,6 +10,7 @@ ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
 ISBN_IGNORED_FILES='^image/(png|jpeg|gif)$'
 #shellcheck disable=SC2016
 FILENAME_TEMPLATE='"${d[AUTHORS]/ & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -} ${d[PUBLISHED]+(${d[PUBLISHED]%%-*}) }[${d[ISBN]}].${d[EXT]}"'
+#shellcheck disable=SC2016
 STDOUT_TEMPLATE='-e "from:\t${current_path}\nto:\t${new_name}\n"'
 SYMLINK_ONLY=false
 DELETE_METADATA=false
@@ -187,14 +188,14 @@ move_or_link_ebook_file_and_metadata() {
 		fi
 	fi
 
-	[ $DRY_RUN ] && decho "(DRY RUN! All operations except metadata deletion are skipped!)"
+	$DRY_RUN && decho "(DRY RUN! All operations except metadata deletion are skipped!)"
 
 	if [[ "$SYMLINK_ONLY" == true ]]; then
 		decho "Symlinking file '$current_path' to '$new_path'..."
-		[ $DRY_RUN ] || ln -s "$(realpath "$current_path")" "$new_path"
+		$DRY_RUN || ln -s "$(realpath "$current_path")" "$new_path"
 	else
 		decho "Moving file '$current_path' to '$new_path'..."
-		[ $DRY_RUN ] || mv "$current_path" "$new_path"
+		$DRY_RUN || mv "$current_path" "$new_path"
 	fi
 
 	if [[ "$DELETE_METADATA" == true ]]; then
@@ -246,7 +247,7 @@ organize_by_isbns() {
 # Arguments: filename
 organize_by_filename_and_meta() {
 	decho "TODO: organizing ebook $1 by the filename and metadata! TODO split filename into words, extract metadata stuff if present try to get the opf from the filename, but move it to a 'to check' folder if successful"
-	echo "SKIP:\t$1"
+	echo -e "SKIP:\t$1\n"
 }
 
 
