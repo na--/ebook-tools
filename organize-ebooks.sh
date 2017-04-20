@@ -11,11 +11,10 @@ ISBN_IGNORED_FILES='^image/(png|jpeg|gif)$'
 #shellcheck disable=SC2016
 FILENAME_TEMPLATE='"${d[AUTHORS]/ & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -} ${d[PUBLISHED]+(${d[PUBLISHED]%%-*}) }[${d[ISBN]}].${d[EXT]}"'
 #shellcheck disable=SC2016
-STDOUT_TEMPLATE='-e "from:\t${current_path}\nto:\t${new_name}\n"'
+STDOUT_TEMPLATE='-e "from:\t${current_path}\nto:\t${new_path#${OUTPUT_FOLDER}/}\n"'
 SYMLINK_ONLY=false
 DELETE_METADATA=false
 METADATA_EXTENSION="meta"
-FORCE_OVERWRITE=false
 VERBOSE=false
 DRY_RUN=false
 DEBUG_PREFIX_LENGTH=40
@@ -49,7 +48,6 @@ for i in "$@"; do
 		-sl|--symlink-only) SYMLINK_ONLY=true ;;
 		-dm|--delete-metadata) DELETE_METADATA=true ;;
 		-me=*|--metadata-extension=*) FILENAME_TEMPLATE="${i#*=}" ;;
-		-f|--force) FORCE_OVERWRITE=true ;;
 		-v|--verbose) VERBOSE=true ;;
 		--debug-prefix-length=*) DEBUG_PREFIX_LENGTH="${i#*=}" ;;
 		-h|--help) print_help; exit 1 ;;
@@ -169,24 +167,24 @@ move_or_link_ebook_file_and_metadata() {
 	new_name="$(eval echo "$FILENAME_TEMPLATE")"
 	decho "The new file name of the book file/link '$current_path' will be: '$new_name'"
 
-	local new_path
+	local new_folder
 	if [[ "$1" == true ]]; then
-		new_path="$OUTPUT_FOLDER/$new_name"
+		new_folder="${OUTPUT_FOLDER%/}"
 	else
-		new_path="$OUTPUT_FOLDER_UNSURE/$new_name"
+		new_folder="${OUTPUT_FOLDER_UNSURE%/}"
 	fi
+
+	local new_path
+	new_path="${new_folder}/${new_name}"
+
+	local counter=0
+	while [[ -e "$new_path" ]]; do
+		counter="$((counter+1))"
+		decho "File '$new_path' already exists in destination '${new_folder}', trying with counter $counter!"
+		new_path="${new_folder}/${new_name%.*} ($counter).${new_name##*.}"
+	done
 
 	eval echo "$STDOUT_TEMPLATE"
-
-	if [[ -e "$new_path" ]]; then
-		if [[ "$FORCE_OVERWRITE" == true ]]; then
-			decho "File '$new_path' already exists and force overwrite is enabled, overwriting!"
-		else
-			decho "ERROR: file '$new_path' already exists and force overwrite is disabled!"
-			echo "ERROR: file '$new_path' already exists and force overwrite is disabled!"
-			exit 3
-		fi
-	fi
 
 	$DRY_RUN && decho "(DRY RUN! All operations except metadata deletion are skipped!)"
 
