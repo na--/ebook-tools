@@ -5,7 +5,7 @@ set -euo pipefail
 OUTPUT_FOLDER="$(pwd)"
 OUTPUT_FOLDER_SEPARATE_UNSURE=false
 OUTPUT_FOLDER_UNSURE="$(pwd)"
-ISBN_REGEX='\b(978|979)?(([ -]?[0-9][ -]?){9}[0-9xX])\b'
+ISBN_REGEX='(?<![0-9])(978|979)?(([ -]?[0-9][ -]?){9}[0-9xX])(?![0-9])'
 ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
 ISBN_IGNORED_FILES='^image/(png|jpeg|gif)$'
 #shellcheck disable=SC2016
@@ -135,7 +135,7 @@ is_isbn_valid() {
 # the order) and finally validates them using is_isbn_valid() and returns
 # them coma-separated
 find_isbns() {
-	{ grep -oE "$ISBN_REGEX" || true; } | tr -d ' -' | awk '!x[$0]++' | (
+	{ grep -oP "$ISBN_REGEX" || true; } | tr -d ' -' | awk '!x[$0]++' | (
 		while IFS='' read -r isbn || [[ -n "$isbn" ]]; do
 			if is_isbn_valid "$isbn"; then
 				echo "$isbn"
@@ -241,13 +241,13 @@ organize_by_isbns() {
 	done
 
 	decho "Could not organize via the found ISBNs, organizing by filename and metadata instead..."
-	organize_by_filename_and_meta "$1"
+	organize_by_filename_and_meta "$1" "Could not fetch metadata for ISBNs '$2'"
 }
 
-# Arguments: filename
+# Arguments: filename, reason (optional)
 organize_by_filename_and_meta() {
 	decho "TODO: organizing ebook $1 by the filename and metadata! TODO split filename into words, extract metadata stuff if present try to get the opf from the filename, but move it to a 'to check' folder if successful"
-	echo -e "SKIP:\t$1\n"
+	echo -e "SKIP:\t$1\nREASON:\t${2:-}\n"
 }
 
 
@@ -361,7 +361,7 @@ organize_file() {
 		organize_by_isbns "$1" "$isbns"
 	else
 		decho "No ISBNs found for '$1', organizing by filename and metadata..."
-		organize_by_filename_and_meta "$1"
+		organize_by_filename_and_meta "$1"	"No ISBNs found"
 	fi
 	decho "====================================================="
 }
