@@ -8,35 +8,52 @@ OUTPUT_FOLDER_UNSURE="$(pwd)"
 ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
 ISBN_IGNORED_FILES='^image/(png|jpeg|gif)$'
 #shellcheck disable=SC2016
-FILENAME_TEMPLATE='"${d[AUTHORS]/ & /, } - ${d[TITLE]/:/ -} (${d[PUBLISHED]%%-*}) [${d[ISBN]}].${d[EXT]}"'
-LINK_ONLY=false
+FILENAME_TEMPLATE='"${d[AUTHORS]/ & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -} ${d[PUBLISHED]+(${d[PUBLISHED]%%-*}) }[${d[ISBN]}].${d[EXT]}"'
+SYMLINK_ONLY=false
+DELETE_METADATA=false
+METADATA_EXTENSION="meta"
 FORCE_OVERWRITE=false
 VERBOSE=false
 DEBUG_PREFIX_LENGTH=40
+VERSION="0.1"
+
+print_help() {
+	echo "eBook Organizer v$VERSION"
+	echo
+	echo "Usage: organize-ebooks.sh [OPTIONS] EBOOK_PATHS..."
+	echo
+	echo "For information about the possible options, see the beginning of the script itself"
+}
 
 for i in "$@"; do
 	case $i in
-		-o=*|--output-sure=*)
+		-o=*|--output-folder=*)
 			OUTPUT_FOLDER="${i#*=}"
 			if [[ "$OUTPUT_FOLDER_SEPARATE_UNSURE" == false ]]; then
 				OUTPUT_FOLDER_UNSURE="${i#*=}"
 			fi
 		;;
-		-ou=*|--output-unsure=*)
+		-ou=*|--output-folder-unsure=*)
 			OUTPUT_FOLDER_SEPARATE_UNSURE=true
 			OUTPUT_FOLDER_UNSURE="${i#*=}"
 		;;
 		-ft=*|--filename-template=*) FILENAME_TEMPLATE="${i#*=}" ;;
 		--isbn-direct-grep-files=*) ISBN_DIRECT_GREP_FILES="${i#*=}" ;;
 		--isbn-extraction-ignore=*) ISBN_IGNORED_FILES="${i#*=}" ;;
-		-l|--link-only) LINK_ONLY=true ;;
+		-sl|--symlink-only) SYMLINK_ONLY=true ;;
+		-dm|--delete-metadata) DELETE_METADATA=true ;;
+		-me=*|--metadata-extension=*) FILENAME_TEMPLATE="${i#*=}" ;;
 		-f|--force) FORCE_OVERWRITE=true ;;
 		-v|--verbose) VERBOSE=true ;;
 		--debug-prefix-length=*) DEBUG_PREFIX_LENGTH="${i#*=}" ;;
+		-h|--help) print_help; exit 1 ;;
+		-*) echo "Invalid option '$i'"; exit 4; ;;
 		*) break ;;
 	esac
 	shift # past argument=value or argument with no value
 done
+if [[ "$#" == "0" ]]; then print_help; exit 2; fi
+
 
 # If the VERBOSE flag is on, outputs the arguments to stderr
 decho () {
@@ -112,11 +129,11 @@ is_isbn_valid() {
 }
 
 
-# Searches STDIN for ISBN-like sequences, removes duplicates, sorts them by
-# longest first (so ISBN-13 numbers are first), validates them using
-# is_isbn_valid() and returns them coma-separated
+# Searches STDIN for ISBN-like sequences and removes duplicates (preserving
+# the order) and finally validates them using is_isbn_valid() and returns
+# them coma-separated
 find_isbns() {
-	{ grep -oE '\b(978|979)?(([ -]?[0-9][ -]?){9}[0-9xX])\b' || true; } | tr -d ' -' | sort -u | awk '{ print length, $0 }' | sort -n -r | cut -d" " -f2- | (
+	{ grep -oE '\b(978|979)?(([ -]?[0-9][ -]?){9}[0-9xX])\b' || true; } | tr -d ' -' | awk '!x[$0]++' | (
 		while IFS='' read -r isbn || [[ -n "$isbn" ]]; do
 			if is_isbn_valid "$isbn"; then
 				echo "$isbn"
@@ -129,8 +146,8 @@ find_isbns() {
 #	is_sure: whether we are relatively sure of the book metadata accuracy
 # 	book_path: the path to book file
 #	metadata_path: the path to the metadata file
-organize_ebook_file() {
-	declare -A d=( ["EXT"]="${1##*.}" ) # metadata and the file extension
+move_or_link_ebook_file_and_metadata() {
+	declare -A d=( ["EXT"]="${2##*.}" ) # metadata and the file extension
 
 	while IFS='' read -r line || [[ -n "$line" ]]; do
 		d["$(echo "${line%%:*}" | sed -e 's/[ \t]*$//' -e 's/ /_/g' -e 's/[^a-zA-Z0-9_]//g' -e 's/\(.*\)/\U\1/')"]="$(echo "${line#*: }" | sed -e 's/[\\/\*\?<>\|\x01-\x1F\x7F]/_/g' )"
@@ -144,8 +161,41 @@ organize_ebook_file() {
 
 	local new_name
 	new_name="$(eval echo "$FILENAME_TEMPLATE")"
-	echo "The new name of the book file '$2' will be: '$new_name'"
-	#TODO
+	decho "====================================================="
+	decho "The new file name of the book file/link '$2' will be: '$new_name'"
+
+	local new_path
+	if [[ "$1" == true ]]; then
+		new_path="$OUTPUT_FOLDER/$new_name"
+	else
+		new_path="$OUTPUT_FOLDER_UNSURE/$new_name"
+	fi
+
+	if [[ -e "$new_path" ]]; then
+		if [[ "$FORCE_OVERWRITE" == true ]]; then
+			decho "File '$new_path' already exists and force overwrite is enabled, overwriting!"
+		else
+			decho "ERROR: file '$new_path' already exists and force overwrite is disabled!"
+			echo "ERROR: file '$new_path' already exists and force overwrite is disabled!"
+			exit 3
+		fi
+	fi
+
+	if [[ "$SYMLINK_ONLY" == true ]]; then
+		decho "Symlinking file '$2' to '$new_path'..."
+		ln -s "$(realpath "$2")" "$new_path"
+	else
+		decho "Moving file '$2' to '$new_path'..."
+		mv "$2" "$new_path"
+	fi
+
+	if [[ "$DELETE_METADATA" == true ]]; then
+		decho "Removing metadata file '$3'..."
+		rm "$3"
+	else
+		decho "Moving metadata file '$3' to '${new_path}.${METADATA_EXTENSION}'..."
+		mv "$3" "${new_path}.${METADATA_EXTENSION}"
+	fi
 }
 
 # Sequentially tries to fetch metadata for each of the supplied ISBNs; if any
@@ -158,15 +208,21 @@ organize_by_isbns() {
 	for isbn in $(echo "$2" | tr ',' '\n'); do
 		tmpmfile="$(mktemp --suffix='.txt')"
 		decho "Trying to fetch metadata for ISBN '$isbn' into temp file '$tmpmfile'..."
-		if fetch-ebook-metadata --verbose --isbn="$isbn" > "$tmpmfile" 2> >(debug_prefixer "[fetch-meta] " 0 --width=80 -s >&2); then
+		#TODO: download cover?
+		if fetch-ebook-metadata --verbose --isbn="$isbn" | grep -E '[a-zA-Z()]+ +: .*'  > "$tmpmfile" 2> >(debug_prefixer "[fetch-meta] " 0 --width=80 -s >&2); then
 			sleep 0.1
 			decho "Successfully fetched metadata: "
 			debug_prefixer "[meta] " 0 --width=100 -t < "$tmpmfile"
-			decho "Addding the ISBNs to the end of the metadata file..."
-			echo "ISBN                : $isbn" >> "$tmpmfile"
-			echo "All Found ISBNs     : $2" >> "$tmpmfile"
+
+			decho "Addding additional metadata to the end of the metadata file..."
+			{
+				echo "ISBN                : $isbn"
+				echo "All found ISBNs     : $2"
+				echo "Old file path       : $1"
+			} >> "$tmpmfile"
+
 			decho "Organizing '$1' (with '$tmpmfile')..."
-			organize_ebook_file true "$1" "$tmpmfile"
+			move_or_link_ebook_file_and_metadata true "$1" "$tmpmfile"
 			return 0
 		fi
 		decho "Removing temp file '$tmpmfile'..."
@@ -243,7 +299,7 @@ search_file_for_isbns() {
 		decho "Archive extracted successfully in $tmpdir, scanning contents recursively..."
 		while IFS= read -r -d '' file_to_check; do
 			#decho "Searching '$file_to_check' for ISBNs..."
-			isbns="$(search_file_for_isbns "$file_to_check" 2> >(debug_prefixer "[${file_to_check#$tmpdir}] " true >&2) )"
+			isbns="$(search_file_for_isbns "$file_to_check" 2> >(debug_prefixer "[${file_to_check#$tmpdir}] " "$DEBUG_PREFIX_LENGTH" >&2) )"
 			if [[ "$isbns" != "" ]]; then
 				decho "Found ISBNs $isbns!"
 				echo -n "$isbns"
