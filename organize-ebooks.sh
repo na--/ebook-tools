@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -7,6 +7,8 @@ OUTPUT_FOLDER_SEPARATE_UNSURE=false
 OUTPUT_FOLDER_UNSURE="$(pwd)"
 ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
 ISBN_IGNORED_FILES='^image/(png|jpeg|gif)$'
+#shellcheck disable=SC2016
+FILENAME_TEMPLATE='"${d[AUTHORS]/ & /, } - ${d[TITLE]/:/ -} (${d[PUBLISHED]%%-*}) [${d[ISBN]}].${d[EXT]}"'
 LINK_ONLY=false
 FORCE_OVERWRITE=false
 VERBOSE=false
@@ -19,41 +21,21 @@ for i in "$@"; do
 			if [[ "$OUTPUT_FOLDER_SEPARATE_UNSURE" == false ]]; then
 				OUTPUT_FOLDER_UNSURE="${i#*=}"
 			fi
-			shift # past argument=value
 		;;
 		-ou=*|--output-unsure=*)
 			OUTPUT_FOLDER_SEPARATE_UNSURE=true
 			OUTPUT_FOLDER_UNSURE="${i#*=}"
-			shift # past argument=value
 		;;
-		--isbn-direct-grep-files=*)
-			ISBN_DIRECT_GREP_FILES="${i#*=}"
-			shift # past argument=value
-		;;
-		--isbn-extraction-ignore=*)
-			ISBN_IGNORED_FILES="${i#*=}"
-			shift # past argument=value
-		;;
-		-l|--link-only)
-			LINK_ONLY=true
-			shift # past argument with no value
-		;;
-		-f|--force)
-			FORCE_OVERWRITE=true
-			shift # past argument with no value
-		;;
-		-v|--verbose)
-			VERBOSE=true
-			shift # past argument with no value
-		;;
-		--debug-prefix-length=*)
-			DEBUG_PREFIX_LENGTH="${i#*=}"
-			shift # past argument=value
-		;;
-		*)
-			break
-		;;
+		-ft=*|--filename-template=*) FILENAME_TEMPLATE="${i#*=}" ;;
+		--isbn-direct-grep-files=*) ISBN_DIRECT_GREP_FILES="${i#*=}" ;;
+		--isbn-extraction-ignore=*) ISBN_IGNORED_FILES="${i#*=}" ;;
+		-l|--link-only) LINK_ONLY=true ;;
+		-f|--force) FORCE_OVERWRITE=true ;;
+		-v|--verbose) VERBOSE=true ;;
+		--debug-prefix-length=*) DEBUG_PREFIX_LENGTH="${i#*=}" ;;
+		*) break ;;
 	esac
+	shift # past argument=value or argument with no value
 done
 
 # If the VERBOSE flag is on, outputs the arguments to stderr
@@ -67,30 +49,27 @@ decho () {
 # (shortened/padded or not) and outputs the result to stderr
 #
 # Arguments:
-#	prefix
-#	should_fit: whether to shorten or pad the prefix so
-#		it fits in DEBUG_PREFIX_LENGTH; false by default)
-#	...: everything else is passed to the fmt command
+#	prefix:	the string with which we will prefix the lines
+#	[should_fit_in]: number of characters to which we want to shorten or pad
+#		the prefix so it fits; 0 is disabled
+#	[...]: everything else is passed to the fmt command
 debug_prefixer() {
 	local prefix
+	prefix="$1"
 	if [[ "$#" -gt 1 ]]; then
-		if [[ "$2" == true ]]; then
-			if (( ${#1} > DEBUG_PREFIX_LENGTH )); then
-				prefix="${1:0:10}..${1:(-$((DEBUG_PREFIX_LENGTH-12)))}"
+		if [[ "$2" -gt 0 ]]; then
+			if (( ${#1} > $2 )); then
+				prefix="${1:0:10}..${1:(-$(($2-12)))}"
 			else
-				prefix="$(printf "%-${DEBUG_PREFIX_LENGTH}s" "$1")"
+				prefix="$(printf "%-${2}s" "$1")"
 			fi
-		else
-			prefix="$1"
 		fi
 		shift
-	else
-		prefix="$1"
 	fi
 	shift
 
 	( if [[ "$#" != "0" ]]; then fmt "$@"; else cat; fi ) |
-	while IFS= read -r line; do
+	while IFS= read -r line || [[ -n "$line" ]] ; do
 		if [[ "$VERBOSE" == true ]]; then
 			decho "${prefix}${line}"
 		fi
@@ -146,25 +125,65 @@ find_isbns() {
 	) | paste -sd "," -
 }
 
-organize_by_isbns() {
-	# args: isbn, filename
-	decho "TODO: organizing ebook $2 by ISBNs '$1'! TODO: get metainfo by isbn"
+# Arguments:
+#	is_sure: whether we are relatively sure of the book metadata accuracy
+# 	book_path: the path to book file
+#	metadata_path: the path to the metadata file
+organize_ebook_file() {
+	declare -A d=( ["EXT"]="${1##*.}" ) # metadata and the file extension
+
+	while IFS='' read -r line || [[ -n "$line" ]]; do
+		d["$(echo "${line%%:*}" | sed -e 's/[ \t]*$//' -e 's/ /_/g' -e 's/[^a-zA-Z0-9_]//g' -e 's/\(.*\)/\U\1/')"]="$(echo "${line#*: }" | sed -e 's/[\\/\*\?<>\|\x01-\x1F\x7F]/_/g' )"
+	done < "$3"
+
+	decho "Variables that will be used for the new filename construction:"
+	local key
+	for key in "${!d[@]}"; do
+		echo "${d[${key}]}" | debug_prefixer "    ${key}" 25
+	done
+
+	local new_name
+	new_name="$(eval echo "$FILENAME_TEMPLATE")"
+	echo "The new name of the book file '$2' will be: '$new_name'"
+	#TODO
 }
 
+# Sequentially tries to fetch metadata for each of the supplied ISBNs; if any
+# is found, writes it to a tmp .txt file and calls organize_known_ebook()
+# Arguments: path, isbn (coma-separated)
+organize_by_isbns() {
+	local tmpmfile
+	local isbn
+
+	for isbn in $(echo "$2" | tr ',' '\n'); do
+		tmpmfile="$(mktemp --suffix='.txt')"
+		decho "Trying to fetch metadata for ISBN '$isbn' into temp file '$tmpmfile'..."
+		if fetch-ebook-metadata --verbose --isbn="$isbn" > "$tmpmfile" 2> >(debug_prefixer "[fetch-meta] " 0 --width=80 -s >&2); then
+			sleep 0.1
+			decho "Successfully fetched metadata: "
+			debug_prefixer "[meta] " 0 --width=100 -t < "$tmpmfile"
+			decho "Addding the ISBNs to the end of the metadata file..."
+			echo "ISBN                : $isbn" >> "$tmpmfile"
+			echo "All Found ISBNs     : $2" >> "$tmpmfile"
+			decho "Organizing '$1' (with '$tmpmfile')..."
+			organize_ebook_file true "$1" "$tmpmfile"
+			return 0
+		fi
+		decho "Removing temp file '$tmpmfile'..."
+		rm "$tmpmfile"
+	done
+	return 1
+}
+
+# Arguments: filename
 organize_by_filename_and_meta() {
-	# args: filename
 	decho "TODO: organizing ebook $1 by the filename and metadata! TODO split filename into words, extract metadata stuff if present try to get the opf from the filename, but move it to a 'to check' folder if successful"
 }
 
-move_to_organized() {
-	# args: book filename, opf filename
-	decho TODO get isbns, authors, title, etc from opf file; move book to folder
-}
 
 # Tries to convert the supplied ebook file into .txt. It uses calibre's
 # ebook-convert tool. For optimization, if present, it will use pdftotext
 # for pdfs.
-#
 # Arguments: input path, output path (shloud have .txt extension), mimetype
 convert_to_txt() {
 	if [[ "$3" == "application/pdf" ]] && command -v pdftotext >/dev/null 2>&1; then
@@ -175,6 +194,7 @@ convert_to_txt() {
 }
 
 search_file_for_isbns() {
+	decho "Searching file '$1' for ISBN numbers..."
 	local isbns
 
 	isbns="$(echo "$1" | find_isbns)"
@@ -206,7 +226,7 @@ search_file_for_isbns() {
 	local ebookmeta
 	ebookmeta="$(ebook-meta "$1")"
 	decho "Ebook metadata:"
-	echo "$ebookmeta" | debug_prefixer "	" false --width=80 -t
+	echo "$ebookmeta" | debug_prefixer "	" 0 --width=80 -t
 	isbns="$(echo "$ebookmeta" | find_isbns)"
 	if [[ "$isbns" != "" ]]; then
 		decho "Extracted ISBNs '$isbns' from calibre ebook metadata!"
@@ -219,10 +239,10 @@ search_file_for_isbns() {
 	local tmpdir
 	tmpdir="$(mktemp -d)"
 	decho "Created a temporary folder '$tmpdir'"
-	if 7z x -o"$tmpdir" "$1" 2>&1 | debug_prefixer "[7zx] " false --width=80 -s; then
+	if 7z x -o"$tmpdir" "$1" 2>&1 | debug_prefixer "[7zx] " 0 --width=80 -s; then
 		decho "Archive extracted successfully in $tmpdir, scanning contents recursively..."
 		while IFS= read -r -d '' file_to_check; do
-			decho "Searching '$file_to_check' for ISBNs..."
+			#decho "Searching '$file_to_check' for ISBNs..."
 			isbns="$(search_file_for_isbns "$file_to_check" 2> >(debug_prefixer "[${file_to_check#$tmpdir}] " true >&2) )"
 			if [[ "$isbns" != "" ]]; then
 				decho "Found ISBNs $isbns!"
@@ -242,7 +262,7 @@ search_file_for_isbns() {
 	local tmptxtfile
 	tmptxtfile="$(mktemp --suffix='.txt')"
 	decho "Converting ebook to text format in file '$tmptxtfile'..."
-	if convert_to_txt "$1" "$tmptxtfile" "$mimetype" 2>&1 | debug_prefixer "[ebook2txt] " false --width=80 -s; then
+	if convert_to_txt "$1" "$tmptxtfile" "$mimetype" 2>&1 | debug_prefixer "[ebook2txt] " 0 --width=80 -s; then
 		decho "Conversion is done, trying to find ISBNs in the text output..."
 		isbns="$(find_isbns < "$tmptxtfile")"
 		if [[ "$isbns" != "" ]]; then
@@ -264,15 +284,16 @@ search_file_for_isbns() {
 }
 
 organize_file() {
-	decho "Found file '$file_to_check', trying to organize..."
-
 	local isbns
 	isbns="$(search_file_for_isbns "$1")"
 	if [[ "$isbns" != "" ]]; then
 		decho "Organizing '$1' by ISBNs '$isbns'!"
-		organize_by_isbns "$isbns" "$1"
+		if ! organize_by_isbns "$1" "$isbns"; then
+			decho "Could not organize via the found ISBNs, organizing by filename and metadata instead..."
+			organize_by_filename_and_meta "$1"
+		fi
 	else
-		decho "No ISBNs found for '$1', organizing by filename..."
+		decho "No ISBNs found for '$1', organizing by filename and metadata..."
 		organize_by_filename_and_meta "$1"
 	fi
 }
@@ -282,10 +303,7 @@ for fpath in "$@"; do
 	decho "Recursively scanning '$fpath' for files"
 	find "$fpath" -type f  -print0 | sort -z | while IFS= read -r -d '' file_to_check
 	do
-		organize_file "$file_to_check" 2> >(debug_prefixer "[$file_to_check] " true >&2)
+		organize_file "$file_to_check" 2> >(debug_prefixer "[$file_to_check] " "$DEBUG_PREFIX_LENGTH" >&2)
 	done
 done
-
-
-
 
