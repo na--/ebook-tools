@@ -5,6 +5,7 @@ set -euo pipefail
 OUTPUT_FOLDER="$(pwd)"
 OUTPUT_FOLDER_SEPARATE_UNSURE=false
 OUTPUT_FOLDER_UNSURE="$(pwd)"
+ISBN_REGEX='\b(978|979)?(([ -]?[0-9][ -]?){9}[0-9xX])\b'
 ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
 ISBN_IGNORED_FILES='^image/(png|jpeg|gif)$'
 #shellcheck disable=SC2016
@@ -14,6 +15,7 @@ DELETE_METADATA=false
 METADATA_EXTENSION="meta"
 FORCE_OVERWRITE=false
 VERBOSE=false
+DRY_RUN=false
 DEBUG_PREFIX_LENGTH=40
 VERSION="0.1"
 
@@ -38,8 +40,10 @@ for i in "$@"; do
 			OUTPUT_FOLDER_UNSURE="${i#*=}"
 		;;
 		-ft=*|--filename-template=*) FILENAME_TEMPLATE="${i#*=}" ;;
+		-i=*|--isbn-regex=*) ISBN_REGEX="${i#*=}" ;;
 		--isbn-direct-grep-files=*) ISBN_DIRECT_GREP_FILES="${i#*=}" ;;
 		--isbn-extraction-ignore=*) ISBN_IGNORED_FILES="${i#*=}" ;;
+		-d|--dry-run) DRY_RUN=true ;;
 		-sl|--symlink-only) SYMLINK_ONLY=true ;;
 		-dm|--delete-metadata) DELETE_METADATA=true ;;
 		-me=*|--metadata-extension=*) FILENAME_TEMPLATE="${i#*=}" ;;
@@ -133,7 +137,7 @@ is_isbn_valid() {
 # the order) and finally validates them using is_isbn_valid() and returns
 # them coma-separated
 find_isbns() {
-	{ grep -oE '\b(978|979)?(([ -]?[0-9][ -]?){9}[0-9xX])\b' || true; } | tr -d ' -' | awk '!x[$0]++' | (
+	{ grep -oE "$ISBN_REGEX" || true; } | tr -d ' -' | awk '!x[$0]++' | (
 		while IFS='' read -r isbn || [[ -n "$isbn" ]]; do
 			if is_isbn_valid "$isbn"; then
 				echo "$isbn"
@@ -164,6 +168,7 @@ move_or_link_ebook_file_and_metadata() {
 	decho "====================================================="
 	decho "The new file name of the book file/link '$2' will be: '$new_name'"
 
+
 	local new_path
 	if [[ "$1" == true ]]; then
 		new_path="$OUTPUT_FOLDER/$new_name"
@@ -181,12 +186,14 @@ move_or_link_ebook_file_and_metadata() {
 		fi
 	fi
 
+	[ $DRY_RUN ] && decho "(DRY RUN! All operations except metadata deletion are skipped!)"
+
 	if [[ "$SYMLINK_ONLY" == true ]]; then
 		decho "Symlinking file '$2' to '$new_path'..."
-		ln -s "$(realpath "$2")" "$new_path"
+		[ $DRY_RUN ] || ln -s "$(realpath "$2")" "$new_path"
 	else
 		decho "Moving file '$2' to '$new_path'..."
-		mv "$2" "$new_path"
+		[ $DRY_RUN ] || mv "$2" "$new_path"
 	fi
 
 	if [[ "$DELETE_METADATA" == true ]]; then
@@ -194,7 +201,11 @@ move_or_link_ebook_file_and_metadata() {
 		rm "$3"
 	else
 		decho "Moving metadata file '$3' to '${new_path}.${METADATA_EXTENSION}'..."
-		mv "$3" "${new_path}.${METADATA_EXTENSION}"
+		if [[ "$DRY_RUN" == true ]]; then
+			rm "$3"
+		else
+			mv "$3" "${new_path}.${METADATA_EXTENSION}"
+		fi
 	fi
 }
 
