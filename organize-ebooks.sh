@@ -3,10 +3,8 @@
 set -euo pipefail
 
 DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
-
 # shellcheck source=./lib.sh
 . "$DIR/lib.sh"
-
 
 OUTPUT_FOLDER="$(pwd)"
 OUTPUT_FOLDER_SEPARATE_UNSURE=false
@@ -191,10 +189,10 @@ organize_by_filename_and_meta() {
 	local title
 	title="$(echo "$ebookmeta" | grep '^Title' | awk -F' : ' '{ print $2 }' | sed -E 's/[^[:alnum:]]+/ /g' )"
 	local author
-	author="$(echo "$ebookmeta" | grep '^Author' | awk -F' : ' '{ print $2 }' | sed -e 's/ & .*//' -e 's/[^[:alpha:]]\+/ /g' )"
+	author="$(echo "$ebookmeta" | grep '^Author' | awk -F' : ' '{ print $2 }' | sed -e 's/ & .*//' -e 's/[^[:alnum:]]\+/ /g' )"
 	decho "Extracted title '$title' and author '$author'"
 
-	if [[ "${title//[[:space:]]/}" != "" && "$title" != "Unknown" && "$(echo "$title" | sed -e 's/[^[:alpha:]]\+//g' )" != "" ]]; then
+	if [[ "${title//[^[:alpha:]]/}" != "" && "$title" != "Unknown" ]]; then
 		decho "There is a relatively normal-looking title, searching for metadata..."
 		tmpmfile="$(mktemp --suffix='.txt')"
 		decho "Created temporary file for metadata downloads '$tmpmfile'"
