@@ -20,6 +20,7 @@ SYMLINK_ONLY=false
 DELETE_METADATA=false
 METADATA_EXTENSION="meta"
 VERBOSE=false
+ORGANIZE_WITHOUT_ISBN=false
 DRY_RUN=false
 DEBUG_PREFIX_LENGTH=40
 VERSION="0.1"
@@ -48,6 +49,7 @@ for i in "$@"; do
 		-i=*|--isbn-regex=*) ISBN_REGEX="${i#*=}" ;;
 		--isbn-direct-grep-files=*) ISBN_DIRECT_GREP_FILES="${i#*=}" ;;
 		--isbn-extraction-ignore=*) ISBN_IGNORED_FILES="${i#*=}" ;;
+		-owi|--organize--without--isbn) ORGANIZE_WITHOUT_ISBN=true ;;
 		-d|--dry-run) DRY_RUN=true ;;
 		-sl|--symlink-only) SYMLINK_ONLY=true ;;
 		-dm|--delete-metadata) DELETE_METADATA=true ;;
@@ -148,6 +150,11 @@ find_isbns() {
 	) | paste -sd "," -
 }
 
+fail_file() {
+	#TODO: add a configuration parameter for this
+	echo -e "${RED}SKIP${NC}:\t$1\nREASON:\t$2\n"
+}
+
 # Arguments:
 #	is_sure: whether we are relatively sure of the book metadata accuracy
 # 	current_path: the path to book file
@@ -244,8 +251,13 @@ organize_by_isbns() {
 		rm "$tmpmfile"
 	done
 
-	decho "Could not organize via the found ISBNs, organizing by filename and metadata instead..."
-	organize_by_filename_and_meta "$1" "Could not fetch metadata for ISBNs '$2'"
+	if [[ "$ORGANIZE_WITHOUT_ISBN" == true ]]; then
+		decho "Could not organize via the found ISBNs, organizing by filename and metadata instead..."
+		organize_by_filename_and_meta "$1" "Could not fetch metadata for ISBNs '$2'"
+	else
+		decho "Organization by filename and metadata is not turned on, giving up..."
+		fail_file "$1" "Could not fetch metadata for ISBNs '$2'; Non-ISBN organization not turned on"
+	fi
 }
 
 # Arguments: filename, reason (optional)
@@ -266,7 +278,7 @@ organize_by_filename_and_meta() {
 	author="$(echo "$ebookmeta" | grep '^Author' | awk -F' : ' '{ print $2 }' | sed -e 's/ & .*//' -e 's/[^[:alpha:]]\+/ /g' )"
 	decho "Extracted title '$title' and author '$author'"
 
-	if [[ "$title" != "" && "$title" != "Unknown" && "$(echo "$title" | sed -e 's/[^[:alpha:]]\+//g' )" != "" ]]; then
+	if [[ "${title//[[:space:]]/}" != "" && "$title" != "Unknown" && "$(echo "$title" | sed -e 's/[^[:alpha:]]\+//g' )" != "" ]]; then
 		decho "There is a relatively normal-looking title, searching for metadata..."
 		tmpmfile="$(mktemp --suffix='.txt')"
 		decho "Created temporary file for metadata downloads '$tmpmfile'"
@@ -277,11 +289,18 @@ organize_by_filename_and_meta() {
 			decho "Addding additional metadata to the end of the metadata file..."
 			echo "Old file path       : $old_path">> "$tmpmfile"
 			echo "Meta fetch method   : $1">> "$tmpmfile"
+
+			local isbn
+			isbn="$(find_isbns < "$tmpmfile")"
+			if [[ "$isbn" != "" ]]; then
+				echo "ISBN                : $isbn" >> "$tmpmfile"
+			fi
+
 			decho "Organizing '$old_path' (with '$tmpmfile')..."
 			move_or_link_ebook_file_and_metadata false "$old_path" "$tmpmfile"
 		}
 
-		if [[ "$author" != "" && "$author" != "Unknown" ]]; then
+		if [[ "${author//[[:space:]]/}" != "" && "$author" != "Unknown" ]]; then
 			decho "Trying to fetch metadata by title '$title' and author '$author'..."
 			if fetch-ebook-metadata --verbose --title="$title" --author="$author" 2> >(debug_prefixer "[fetch-meta-t&a] " 0 --width=80 -s) | grep -E '[a-zA-Z()]+ +: .*'  > "$tmpmfile"; then
 				finisher "title&author"
@@ -305,7 +324,7 @@ organize_by_filename_and_meta() {
 		rm "$tmpmfile"
 	fi
 
-	echo -e "${RED}SKIP${NC}:\t$old_path\nREASON:\t${2:-}${2+; }Insufficient or wrong file name/metadata\n"
+	fail_file "$old_path" "${2:-}${2+; }Insufficient or wrong file name/metadata"
 }
 
 
@@ -417,9 +436,11 @@ organize_file() {
 	if [[ "$isbns" != "" ]]; then
 		decho "Organizing '$1' by ISBNs '$isbns'!"
 		organize_by_isbns "$1" "$isbns"
-	else
+	elif [[ "$ORGANIZE_WITHOUT_ISBN" == true ]]; then
 		decho "No ISBNs found for '$1', organizing by filename and metadata..."
-		organize_by_filename_and_meta "$1"	"No ISBNs found"
+		organize_by_filename_and_meta "$1" "No ISBNs found"
+	else
+		fail_file "$1" "No ISBNs found; Non-ISBN organization not turned on"
 	fi
 	decho "====================================================="
 }
