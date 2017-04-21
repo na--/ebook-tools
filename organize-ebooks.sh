@@ -64,6 +64,7 @@ if [[ "$#" == "0" ]]; then print_help; exit 2; fi
 
 fail_file() {
 	#TODO: add a configuration parameter for this
+	decho -e "${RED}SKIP${NC}:\t$1\nREASON:\t$2\n"
 	echo -e "${RED}SKIP${NC}:\t$1\nREASON:\t$2\n"
 }
 
@@ -185,9 +186,9 @@ organize_by_filename_and_meta() {
 	echo "$ebookmeta" | debug_prefixer "	" 0 --width=80 -t
 
 	local title
-	title="$(echo "$ebookmeta" | grep '^Title' | awk -F' : ' '{ print $2 }' | sed -E 's/[^[:alnum:]]+/ /g' )"
+	title="$(echo "$ebookmeta" | grep --max-count=1 '^Title' | awk -F' : ' '{ print $2 }' | sed -E 's/[^[:alnum:]]+/ /g' )"
 	local author
-	author="$(echo "$ebookmeta" | grep '^Author' | awk -F' : ' '{ print $2 }' | sed -e 's/ & .*//' -e 's/[^[:alnum:]]\+/ /g' )"
+	author="$(echo "$ebookmeta" | grep --max-count=1 '^Author' | awk -F' : ' '{ print $2 }' | sed -e 's/ & .*//' -e 's/[^[:alnum:]]\+/ /g' )"
 	decho "Extracted title '$title' and author '$author'"
 
 	if [[ "${title//[^[:alpha:]]/}" != "" && "$title" != "Unknown" ]]; then
@@ -226,8 +227,8 @@ organize_by_filename_and_meta() {
 			fi
 		fi
 
-		decho "Missing or unknown author, trying to fetch metadata by title '$title'..."
-		if fetch-ebook-metadata --verbose --title="$title" --author="$author" 2> >(debug_prefixer "[fetch-meta-t] " 0 --width=80 -s) | grep -E '[a-zA-Z()]+ +: .*'  > "$tmpmfile"; then
+		decho "Trying to fetch metadata only by title '$title'..."
+		if fetch-ebook-metadata --verbose --title="$title" 2> >(debug_prefixer "[fetch-meta-t] " 0 --width=80 -s) | grep -E '[a-zA-Z()]+ +: .*'  > "$tmpmfile"; then
 			finisher "title"
 			return
 		fi
@@ -241,16 +242,25 @@ organize_by_filename_and_meta() {
 
 
 organize_file() {
-	local isbns
-	isbns="$(search_file_for_isbns "$1")"
-	if [[ "$isbns" != "" ]]; then
-		decho "Organizing '$1' by ISBNs '$isbns'!"
-		organize_by_isbns "$1" "$isbns"
-	elif [[ "$ORGANIZE_WITHOUT_ISBN" == true ]]; then
-		decho "No ISBNs found for '$1', organizing by filename and metadata..."
-		organize_by_filename_and_meta "$1" "No ISBNs found"
+	local file_err
+	file_err="$(check_file_for_corruption "$1" 2> >(debug_prefixer "[curruption-check] " 0 --width=80 -s))"
+	if [[ "$file_err" != "" ]]; then
+		#TODO: move corrupt files to a new folder
+		fail_file "$1" "File is corrupt: $file_err"
 	else
-		fail_file "$1" "No ISBNs found; Non-ISBN organization not turned on"
+		decho "File passed the corruption test, looking for ISBNs..."
+
+		local isbns
+		isbns="$(search_file_for_isbns "$1")"
+		if [[ "$isbns" != "" ]]; then
+			decho "Organizing '$1' by ISBNs '$isbns'!"
+			organize_by_isbns "$1" "$isbns"
+		elif [[ "$ORGANIZE_WITHOUT_ISBN" == true ]]; then
+			decho "No ISBNs found for '$1', organizing by filename and metadata..."
+			organize_by_filename_and_meta "$1" "No ISBNs found"
+		else
+			fail_file "$1" "No ISBNs found; Non-ISBN organization not turned on"
+		fi
 	fi
 	decho "====================================================="
 }
