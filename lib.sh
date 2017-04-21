@@ -11,6 +11,8 @@ ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
 ISBN_IGNORED_FILES='^image/(png|jpeg|gif)$'
 ISBN_RET_SEPARATOR=","
 
+TESTED_ARCHIVE_FILES='^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr)$'
+
 # If the VERBOSE flag is on, outputs the arguments to stderr
 decho () {
 	if [[ "${VERBOSE:-false}" == true ]]; then
@@ -98,8 +100,54 @@ find_isbns() {
 }
 
 
-is_valid_pdf() {
-	echo "TODO"
+# Returns non-zero status if the supplied command does not exist
+command_exists() {
+	command -v "$1" >/dev/null 2>&1
+}
+
+
+# Checks the supplied file for different kinds of corruption:
+#  - If it's zero-sized or contains only \0
+#  - If it's has a pdf extension but different mime type
+#  - If it's a pdf and pdfinfo returns an error
+#  - If it has an archive extension but `7z t` returns an error
+check_file_for_corruption() {
+	decho "Testing '$1' for corruption..."
+
+	if [[ "$(tr -d '\0' < "$1" | head -c 1)" == "" ]]; then
+		echo "The file is empty or contains only zeros!"
+		return
+	fi
+
+	local ext
+	ext="${1##*.}"
+	local mimetype
+	mimetype="$(file --brief --mime-type "$1")"
+
+	if [[ "$ext" == "pdf" && "$mimetype" != "application/pdf" ]]; then
+		echo "The file has a .pdf extension but '$mimetype' MIME type!"
+	elif [[ "$mimetype" == "application/pdf" ]]; then
+		decho "Checking pdf file for integrity..."
+		if ! command_exists pdfinfo; then
+			decho "pdfinfo does not exist, could not check if pdf is OK"
+		elif ! pdfinfo "$1" 2> >(tail | debug_prefixer "[pdfinfo-err|tail] " 0 --width=80 -s) | debug_prefixer "[pdfinfo] " 0 --width=80 -t; then
+			echo "Has pdf MIME type or extension, but pdfinfo returned an error!"
+			return
+		else
+			decho "Looks ok, pdfinfo returned successfully"
+		fi
+	fi
+
+	if [[ "$ext" =~ $TESTED_ARCHIVE_FILES ]]; then
+		decho "The file has a '.$ext' extension, testing with 7z..."
+		local log
+
+		if ! log="$(7z t "$1" 2>&1)"; then
+			decho "Test failed!"
+			echo "$log" |  debug_prefixer "[7z-test-log] " 0 --width=80 -s
+			echo "Looks like an archive, but testing it with 7z failed!"
+		fi
+	fi
 }
 
 
@@ -108,7 +156,7 @@ is_valid_pdf() {
 # for pdfs.
 # Arguments: input path, output path (shloud have .txt extension), mimetype
 convert_to_txt() {
-	if [[ "$3" == "application/pdf" ]] && command -v pdftotext >/dev/null 2>&1; then
+	if [[ "$3" == "application/pdf" ]] && command_exists pdftotext; then
 		pdftotext "$1" "$2"
 	else
 		ebook-convert "$1" "$2"
