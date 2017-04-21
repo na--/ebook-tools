@@ -9,10 +9,11 @@ NC='\033[0m' #shellcheck disable=SC2034
 ISBN_REGEX='(?<![0-9])(977|978|979)?(([ -]?[0-9][ -]?){9}[0-9xX])(?![0-9])'
 ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
 ISBN_IGNORED_FILES='^image/(png|jpeg|gif)$'
+ISBN_RET_SEPARATOR=","
 
 # If the VERBOSE flag is on, outputs the arguments to stderr
 decho () {
-	if [[ "${VERBOSE:-true}" == true ]]; then
+	if [[ "${VERBOSE:-false}" == true ]]; then
 		echo "$@" >&2
 	fi
 }
@@ -93,7 +94,7 @@ find_isbns() {
 				echo "$isbn"
 			fi
 		done
-	) | paste -sd "," -
+	) | paste -sd "$ISBN_RET_SEPARATOR" -
 }
 
 
@@ -115,6 +116,18 @@ convert_to_txt() {
 }
 
 
+# Tries to find ISBN numbers in the given ebook file by using progressively
+# more "expensive" tactics. If at some point ISBN numbers are found, they
+# are echoed to stdout and the function returns.
+# These are the steps:
+#   - Check the supplied file name and path for ISBNs
+#   - If the MIME type of the file matches ISBN_DIRECT_GREP_FILES, search
+#     the file contents directly for ISBNs
+#   - If the MIME type matches ISBN_IGNORED_FILES, the function returns early
+#   - Check the file metadata from calibre's `ebook-meta` for ISBNs
+#   - Try to extract the file as an archive with `7z`; if successful,
+#     recursively call search_file_for_isbns for all the extracted files
+#   - Try to convert the file to a .txt via convert_to_txt()
 search_file_for_isbns() {
 	decho "Searching file '$1' for ISBN numbers..."
 	local isbns
@@ -165,7 +178,7 @@ search_file_for_isbns() {
 		decho "Archive extracted successfully in $tmpdir, scanning contents recursively..."
 		while IFS= read -r -d '' file_to_check; do
 			#decho "Searching '$file_to_check' for ISBNs..."
-			isbns="$(search_file_for_isbns "$file_to_check" 2> >(debug_prefixer "[${file_to_check#$tmpdir}] " "$DEBUG_PREFIX_LENGTH") )"
+			isbns="$(search_file_for_isbns "$file_to_check" 2> >(debug_prefixer "[${file_to_check#$tmpdir}] " "${DEBUG_PREFIX_LENGTH:-40}") )"
 			if [[ "$isbns" != "" ]]; then
 				decho "Found ISBNs $isbns!"
 				echo -n "$isbns"

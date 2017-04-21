@@ -240,7 +240,6 @@ organize_by_filename_and_meta() {
 }
 
 
-
 organize_file() {
 	local isbns
 	isbns="$(search_file_for_isbns "$1")"
