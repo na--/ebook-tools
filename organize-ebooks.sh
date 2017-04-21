@@ -24,11 +24,6 @@ OUTPUT_FOLDER_CORRUPT=
 VERBOSE=false
 DEBUG_PREFIX_LENGTH=40
 
-#TODO: add a configuration parameters for these?
-#shellcheck disable=SC2016
-STDOUT_OK_TEMPLATE='-e "${GREEN}OK${NC}:\t${current_path}\nTO:\t${new_path}\n"'
-STDOUT_SKIP_TEMPLATE='-e "SKIP:\t$1\nREASON:\t$2\n"'
-STDOUT_ERROR_TEMPLATE='-e "${RED}ERR${NC}:\t$1\nREASON:\t$2\n"'
 
 print_help() {
 	echo "eBook Organizer v$VERSION"
@@ -57,7 +52,7 @@ for i in "$@"; do
 			OUTPUT_FOLDER_SEPARATE_UNSURE=true
 			OUTPUT_FOLDER_UNSURE="${i#*=}"
 		;;
-		-oc=*|--output-folder-corrupt=*) OUTPUT_FOLDER_CORRUPT=="${i#*=}" ;;
+		-oc=*|--output-folder-corrupt=*) OUTPUT_FOLDER_CORRUPT="${i#*=}" ;;
 
 		-v|--verbose) VERBOSE=true ;;
 		--debug-prefix-length=*) DEBUG_PREFIX_LENGTH="${i#*=}" ;;
@@ -77,8 +72,11 @@ if [[ "$#" == "0" ]]; then print_help; exit 2; fi
 
 
 fail_file() {
+	echo -e "${RED}ERR${NC}:\t$1\nREASON:\t$2\n${3+TO:\t$3\n}"
+}
 
-	eval echo "$STDOUT_SKIP_TEMPLATE"
+skip_file() {
+	echo -e "SKIP:\t$1\nREASON:\t$2\n"
 }
 
 # Arguments:
@@ -91,7 +89,7 @@ move_or_link_ebook_file_and_metadata() {
 	declare -A d=( ["EXT"]="${current_path##*.}" ) # metadata and the file extension
 
 	while IFS='' read -r line || [[ -n "$line" ]]; do
-		d["$(echo "${line%%:*}" | sed -e 's/[ \t]*$//' -e 's/ /_/g' -e 's/[^a-zA-Z0-9_]//g' -e 's/\(.*\)/\U\1/')"]="$(echo "${line#*: }" | sed -e 's/[\\/\*\?<>\|\x01-\x1F\x7F]/_/g' | cut -c 1-120 )"
+		d["$(echo "${line%%:*}" | sed -e 's/[ \t]*$//' -e 's/ /_/g' -e 's/[^a-zA-Z0-9_]//g' -e 's/\(.*\)/\U\1/')"]="$(printf "%q" "$(echo "${line#*: }" | sed -e 's/[\\/\*\?<>\|\x01-\x1F\x7F]/_/g' | cut -c 1-120 )")"
 	done < "$3"
 
 	decho "Variables that will be used for the new filename construction:"
@@ -112,19 +110,10 @@ move_or_link_ebook_file_and_metadata() {
 	fi
 
 	local new_path
-	new_path="${new_folder}/${new_name}"
-
-	local counter=0
-	while [[ -e "$new_path" ]]; do
-		counter="$((counter+1))"
-		decho "File '$new_path' already exists in destination '${new_folder}', trying with counter $counter!"
-		new_path="${new_folder}/${new_name%.*} ($counter).${new_name##*.}"
-	done
-
-	eval echo "$STDOUT_OK_TEMPLATE"
+	new_path="$(unique_filename "$new_folder" "$new_name")"
+	echo -e "${GREEN}OK${NC}:\t${current_path}\nTO:\t${new_path}\n"
 
 	$DRY_RUN && decho "(DRY RUN! All operations except metadata deletion are skipped!)"
-
 	if [[ "$SYMLINK_ONLY" == true ]]; then
 		decho "Symlinking file '$current_path' to '$new_path'..."
 		$DRY_RUN || ln -s "$(realpath "$current_path")" "$new_path"
@@ -182,7 +171,7 @@ organize_by_isbns() {
 		organize_by_filename_and_meta "$1" "Could not fetch metadata for ISBNs '$2'"
 	else
 		decho "Organization by filename and metadata is not turned on, giving up..."
-		fail_file "$1" "Could not fetch metadata for ISBNs '$2'; Non-ISBN organization not turned on"
+		skip_file "$1" "Could not fetch metadata for ISBNs '$2'; Non-ISBN organization not turned on"
 	fi
 }
 
@@ -199,9 +188,9 @@ organize_by_filename_and_meta() {
 	echo "$ebookmeta" | debug_prefixer "	" 0 --width=80 -t
 
 	local title
-	title="$(echo "$ebookmeta" | grep --max-count=1 '^Title' | awk -F' : ' '{ print $2 }' | sed -E 's/[^[:alnum:]]+/ /g' )"
+	title="$(echo "$ebookmeta" | grep_meta_val "Title" | sed -E 's/[^[:alnum:]]+/ /g' )"
 	local author
-	author="$(echo "$ebookmeta" | grep --max-count=1 '^Author' | awk -F' : ' '{ print $2 }' | sed -e 's/ & .*//' -e 's/[^[:alnum:]]\+/ /g' )"
+	author="$(echo "$ebookmeta" | grep_meta_val "Author" | sed -e 's/ & .*//' -e 's/[^[:alnum:]]\+/ /g' )"
 	decho "Extracted title '$title' and author '$author'"
 
 	if [[ "${title//[^[:alpha:]]/}" != "" && "$title" != "Unknown" ]]; then
@@ -246,11 +235,13 @@ organize_by_filename_and_meta() {
 			return
 		fi
 
+		#TODO: use only the filename? useful for mangled file metadata but clear filenames
+
 		decho "Could not find anything, removing the temp file '$tmpmfile'..."
 		rm "$tmpmfile"
 	fi
 
-	fail_file "$old_path" "${2:-}${2+; }Insufficient or wrong file name/metadata"
+	skip_file "$old_path" "${2:-}${2+; }Insufficient or wrong file name/metadata"
 }
 
 
@@ -258,8 +249,24 @@ organize_file() {
 	local file_err
 	file_err="$(check_file_for_corruption "$1")"
 	if [[ "$file_err" != "" ]]; then
-		#TODO: move corrupt files to a new folder
-		fail_file "$1" "File is corrupt: $file_err"
+		decho "File '$1' is corrupt with error '$file_err'"
+		if [[ "${OUTPUT_FOLDER_CORRUPT:-}" != "" ]]; then
+			local new_path
+			new_path="$(unique_filename "$OUTPUT_FOLDER_CORRUPT" "$(basename "$1")")"
+
+			$DRY_RUN && decho "(DRY RUN! All operations except metadata deletion are skipped!)"
+			if [[ "$SYMLINK_ONLY" == true ]]; then
+				decho "Symlinking file '$1' to '$new_path'..."
+				$DRY_RUN || ln -s "$(realpath "$1")" "$new_path"
+			else
+				decho "Moving file '$current_path' to '$new_path'..."
+				$DRY_RUN || mv --no-clobber "$1" "$new_path"
+			fi
+			decho "Saving original filename to '${new_path}.${OUTPUT_METADATA_EXTENSION}'..."
+			$DRY_RUN || echo "Old file path       : $1" > "${new_path}.${OUTPUT_METADATA_EXTENSION}"
+		else
+			fail_file "$1" "File is corrupt: $file_err"
+		fi
 	else
 		decho "File passed the corruption test, looking for ISBNs..."
 
@@ -272,7 +279,7 @@ organize_file() {
 			decho "No ISBNs found for '$1', organizing by filename and metadata..."
 			organize_by_filename_and_meta "$1" "No ISBNs found"
 		else
-			fail_file "$1" "No ISBNs found; Non-ISBN organization not turned on"
+			skip_file "$1" "No ISBNs found; Non-ISBN organization not turned on"
 		fi
 	fi
 	decho "====================================================="

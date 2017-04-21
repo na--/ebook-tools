@@ -109,6 +109,29 @@ command_exists() {
 	command -v "$1" >/dev/null 2>&1
 }
 
+# Return "$1/$2" if no file exists at this path. Otherwrise, sequentially
+# insert " ($n)" before the extension of $2 and return the first path for
+# which no file is present.
+unique_filename() {
+	local new_path
+	new_path="$1/$2"
+
+	local counter=0
+	while [[ -e "$new_path" ]]; do
+		counter="$((counter+1))"
+		decho "File '$new_path' already exists in destination '${1}', trying with counter $counter!"
+		new_path="${1}/${2%.*} ($counter).${2##*.}"
+	done
+
+	echo "$new_path"
+}
+
+# Returns a single value by key by parsing the calibre-style text metadata
+# hashmap that is passed to stdin
+grep_meta_val() {
+	grep --max-count=1 "^$1" | awk -F' : ' '{ print $2 }'
+}
+
 
 # Checks the supplied file for different kinds of corruption:
 #  - If it's zero-sized or contains only \0
