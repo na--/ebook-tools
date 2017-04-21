@@ -198,12 +198,17 @@ organize_by_filename_and_meta() {
 		tmpmfile="$(mktemp --suffix='.txt')"
 		decho "Created temporary file for metadata downloads '$tmpmfile'"
 
+		fetcher() {
+			fetch-ebook-metadata --verbose "${@:2}" 2> >(debug_prefixer "[fetch-meta-$1] " 0 --width=80 -s) | grep -E '[a-zA-Z()]+ +: .*'  > "$tmpmfile"
+		}
+
 		finisher() {
 			decho "Successfully fetched metadata: "
 			debug_prefixer "[meta-$1] " 0 --width=100 -t < "$tmpmfile"
 			decho "Addding additional metadata to the end of the metadata file..."
-			echo "Old file path       : $old_path">> "$tmpmfile"
-			echo "Meta fetch method   : $1">> "$tmpmfile"
+			echo "Old file path       : $old_path" >> "$tmpmfile"
+			echo "Meta fetch method   : $1" >> "$tmpmfile"
+			echo "$ebookmeta" | sed -E 's/^(.+[^ ])   ([ ]+): /OF \1\2: /' >> "$tmpmfile"
 
 			local isbn
 			isbn="$(find_isbns < "$tmpmfile")"
@@ -217,20 +222,19 @@ organize_by_filename_and_meta() {
 
 		if [[ "${author//[[:space:]]/}" != "" && "$author" != "Unknown" ]]; then
 			decho "Trying to fetch metadata by title '$title' and author '$author'..."
-			if fetch-ebook-metadata --verbose --title="$title" --author="$author" 2> >(debug_prefixer "[fetch-meta-t&a] " 0 --width=80 -s) | grep -E '[a-zA-Z()]+ +: .*'  > "$tmpmfile"; then
+			if fetcher "title&author" --title="$title" --author="$author"; then
 				finisher "title&author"
 				return
 			fi
-
 			decho "Trying to swap places - author '$title' and title '$author'..."
-			if fetch-ebook-metadata --verbose --title="$author" --author="$title" 2> >(debug_prefixer "[fetch-meta-rev-t&a] " 0 --width=80 -s) | grep -E '[a-zA-Z()]+ +: .*'  > "$tmpmfile"; then
+			if fetcher "rev-title&author" --title="$author" --author="$title"; then
 				finisher "rev-title&author"
 				return
 			fi
 		fi
 
 		decho "Trying to fetch metadata only by title '$title'..."
-		if fetch-ebook-metadata --verbose --title="$title" 2> >(debug_prefixer "[fetch-meta-t] " 0 --width=80 -s) | grep -E '[a-zA-Z()]+ +: .*'  > "$tmpmfile"; then
+		if fetcher "title" --title="$title"; then
 			finisher "title"
 			return
 		fi
