@@ -6,21 +6,29 @@ DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 # shellcheck source=./lib.sh
 . "$DIR/lib.sh"
 
+VERSION="0.1"
+
+ORGANIZE_WITHOUT_ISBN=false
+DRY_RUN=false
+SYMLINK_ONLY=false
+DELETE_METADATA=false
+
+#shellcheck disable=SC2016
+OUTPUT_FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]+ (${d[PUBLISHED]%%-*})}${d[ISBN]+ [${d[ISBN]}]}.${d[EXT]}"'
+OUTPUT_METADATA_EXTENSION="meta"
 OUTPUT_FOLDER="$(pwd)"
 OUTPUT_FOLDER_SEPARATE_UNSURE=false
 OUTPUT_FOLDER_UNSURE="$(pwd)"
-#shellcheck disable=SC2016
-FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]+ (${d[PUBLISHED]%%-*})}${d[ISBN]+ [${d[ISBN]}]}.${d[EXT]}"'
-#shellcheck disable=SC2016
-STDOUT_TEMPLATE='-e "${GREEN}OK${NC}:\t${current_path}\nTO:\t${new_path}\n"'
-SYMLINK_ONLY=false
-DELETE_METADATA=false
-METADATA_EXTENSION="meta"
+OUTPUT_FOLDER_CORRUPT=
+
 VERBOSE=false
-ORGANIZE_WITHOUT_ISBN=false
-DRY_RUN=false
 DEBUG_PREFIX_LENGTH=40
-VERSION="0.1"
+
+#TODO: add a configuration parameters for these?
+#shellcheck disable=SC2016
+STDOUT_OK_TEMPLATE='-e "${GREEN}OK${NC}:\t${current_path}\nTO:\t${new_path}\n"'
+STDOUT_SKIP_TEMPLATE='-e "SKIP:\t$1\nREASON:\t$2\n"'
+STDOUT_ERROR_TEMPLATE='-e "${RED}ERR${NC}:\t$1\nREASON:\t$2\n"'
 
 print_help() {
 	echo "eBook Organizer v$VERSION"
@@ -32,6 +40,13 @@ print_help() {
 
 for i in "$@"; do
 	case $i in
+		-owi|--organize--without--isbn) ORGANIZE_WITHOUT_ISBN=true ;;
+		-d|--dry-run) DRY_RUN=true ;;
+		-sl|--symlink-only) SYMLINK_ONLY=true ;;
+		-dm|--delete-metadata) DELETE_METADATA=true ;;
+
+		-oft=*|--output-filename-template=*) OUTPUT_FILENAME_TEMPLATE="${i#*=}" ;;
+		-ome=*|--output-metadata-extension=*) OUTPUT_METADATA_EXTENSION="${i#*=}" ;;
 		-o=*|--output-folder=*)
 			OUTPUT_FOLDER="${i#*=}"
 			if [[ "$OUTPUT_FOLDER_SEPARATE_UNSURE" == false ]]; then
@@ -42,17 +57,16 @@ for i in "$@"; do
 			OUTPUT_FOLDER_SEPARATE_UNSURE=true
 			OUTPUT_FOLDER_UNSURE="${i#*=}"
 		;;
-		-ft=*|--filename-template=*) FILENAME_TEMPLATE="${i#*=}" ;;
+		-oc=*|--output-folder-corrupt=*) OUTPUT_FOLDER_CORRUPT=="${i#*=}" ;;
+
+		-v|--verbose) VERBOSE=true ;;
+		--debug-prefix-length=*) DEBUG_PREFIX_LENGTH="${i#*=}" ;;
+
 		-i=*|--isbn-regex=*) ISBN_REGEX="${i#*=}" ;;
 		--isbn-direct-grep-files=*) ISBN_DIRECT_GREP_FILES="${i#*=}" ;;
 		--isbn-extraction-ignore=*) ISBN_IGNORED_FILES="${i#*=}" ;;
-		-owi|--organize--without--isbn) ORGANIZE_WITHOUT_ISBN=true ;;
-		-d|--dry-run) DRY_RUN=true ;;
-		-sl|--symlink-only) SYMLINK_ONLY=true ;;
-		-dm|--delete-metadata) DELETE_METADATA=true ;;
-		-me=*|--metadata-extension=*) FILENAME_TEMPLATE="${i#*=}" ;;
-		-v|--verbose) VERBOSE=true ;;
-		--debug-prefix-length=*) DEBUG_PREFIX_LENGTH="${i#*=}" ;;
+		--tested-archive-extensions=*) TESTED_ARCHIVE_EXTENSIONS="${i#*=}" ;;
+
 		-h|--help) print_help; exit 1 ;;
 		-*) echo "Invalid option '$i'"; exit 4; ;;
 		*) break ;;
@@ -63,9 +77,8 @@ if [[ "$#" == "0" ]]; then print_help; exit 2; fi
 
 
 fail_file() {
-	#TODO: add a configuration parameter for this
-	decho -e "${RED}SKIP${NC}:\t$1\nREASON:\t$2\n"
-	echo -e "${RED}SKIP${NC}:\t$1\nREASON:\t$2\n"
+
+	eval echo "$STDOUT_SKIP_TEMPLATE"
 }
 
 # Arguments:
@@ -88,7 +101,7 @@ move_or_link_ebook_file_and_metadata() {
 	done
 
 	local new_name
-	new_name="$(eval echo "$FILENAME_TEMPLATE")"
+	new_name="$(eval echo "$OUTPUT_FILENAME_TEMPLATE")"
 	decho "The new file name of the book file/link '$current_path' will be: '$new_name'"
 
 	local new_folder
@@ -108,7 +121,7 @@ move_or_link_ebook_file_and_metadata() {
 		new_path="${new_folder}/${new_name%.*} ($counter).${new_name##*.}"
 	done
 
-	eval echo "$STDOUT_TEMPLATE"
+	eval echo "$STDOUT_OK_TEMPLATE"
 
 	$DRY_RUN && decho "(DRY RUN! All operations except metadata deletion are skipped!)"
 
@@ -124,9 +137,9 @@ move_or_link_ebook_file_and_metadata() {
 		decho "Removing metadata file '$3'..."
 		rm "$3"
 	else
-		decho "Moving metadata file '$3' to '${new_path}.${METADATA_EXTENSION}'..."
+		decho "Moving metadata file '$3' to '${new_path}.${OUTPUT_METADATA_EXTENSION}'..."
 		if [[ "$DRY_RUN" != true ]]; then
-			mv --no-clobber "$3" "${new_path}.${METADATA_EXTENSION}"
+			mv --no-clobber "$3" "${new_path}.${OUTPUT_METADATA_EXTENSION}"
 		else
 			rm "$3"
 		fi
@@ -243,7 +256,7 @@ organize_by_filename_and_meta() {
 
 organize_file() {
 	local file_err
-	file_err="$(check_file_for_corruption "$1" 2> >(debug_prefixer "[curruption-check] " 0 --width=80 -s))"
+	file_err="$(check_file_for_corruption "$1")"
 	if [[ "$file_err" != "" ]]; then
 		#TODO: move corrupt files to a new folder
 		fail_file "$1" "File is corrupt: $file_err"

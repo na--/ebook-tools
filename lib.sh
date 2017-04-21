@@ -6,12 +6,16 @@ GREEN='\033[0;32m' #shellcheck disable=SC2034
 RED='\033[0;31m' #shellcheck disable=SC2034
 NC='\033[0m' #shellcheck disable=SC2034
 
+# This regular expression should match most ISBN10/13-like sequences in
+# texts. To minimize false-positives, matches should be passed through
+# is_isbn_valid() or another ISBN validator
 ISBN_REGEX='(?<![0-9])(977|978|979)?+(([ -]?[0-9][ -]?){9}[0-9xX])(?![0-9-])'
+
 ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
 ISBN_IGNORED_FILES='^image/(png|jpeg|gif)$'
 ISBN_RET_SEPARATOR=","
 
-TESTED_ARCHIVE_FILES='^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr)$'
+TESTED_ARCHIVE_EXTENSIONS='^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr)$'
 
 # If the VERBOSE flag is on, outputs the arguments to stderr
 decho () {
@@ -138,7 +142,7 @@ check_file_for_corruption() {
 		fi
 	fi
 
-	if [[ "$ext" =~ $TESTED_ARCHIVE_FILES ]]; then
+	if [[ "$ext" =~ $TESTED_ARCHIVE_EXTENSIONS ]]; then
 		decho "The file has a '.$ext' extension, testing with 7z..."
 		local log
 
