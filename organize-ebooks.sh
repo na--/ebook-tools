@@ -89,7 +89,7 @@ move_or_link_ebook_file_and_metadata() {
 	declare -A d=( ["EXT"]="${current_path##*.}" ) # metadata and the file extension
 
 	while IFS='' read -r line || [[ -n "$line" ]]; do
-		d["$(echo "${line%%:*}" | sed -e 's/[ \t]*$//' -e 's/ /_/g' -e 's/[^a-zA-Z0-9_]//g' -e 's/\(.*\)/\U\1/')"]="$(printf "%q" "$(echo "${line#*: }" | sed -e 's/[\\/\*\?<>\|\x01-\x1F\x7F]/_/g' | cut -c 1-120 )")"
+		d["$(echo "${line%%:*}" | sed -e 's/[ \t]*$//' -e 's/ /_/g' -e 's/[^a-zA-Z0-9_]//g' -e 's/\(.*\)/\U\1/')"]="$(echo "${line#*: }" | sed -e 's/[\\/\*\?<>\|\x01-\x1F\x7F\x22\x24\x60]/_/g' | cut -c 1-120 )"
 	done < "$3"
 
 	decho "Variables that will be used for the new filename construction:"
@@ -250,20 +250,25 @@ organize_file() {
 	file_err="$(check_file_for_corruption "$1")"
 	if [[ "$file_err" != "" ]]; then
 		decho "File '$1' is corrupt with error '$file_err'"
-		if [[ "${OUTPUT_FOLDER_CORRUPT:-}" != "" ]]; then
+		if [[ "${OUTPUT_FOLDER_CORRUPT%/}" != "" ]]; then
 			local new_path
-			new_path="$(unique_filename "$OUTPUT_FOLDER_CORRUPT" "$(basename "$1")")"
+			new_path="$(unique_filename "${OUTPUT_FOLDER_CORRUPT%/}" "$(basename "$1")")"
+
+			fail_file "$1" "File is corrupt: $file_err" "$new_path"
 
 			$DRY_RUN && decho "(DRY RUN! All operations except metadata deletion are skipped!)"
 			if [[ "$SYMLINK_ONLY" == true ]]; then
 				decho "Symlinking file '$1' to '$new_path'..."
 				$DRY_RUN || ln -s "$(realpath "$1")" "$new_path"
 			else
-				decho "Moving file '$current_path' to '$new_path'..."
+				decho "Moving file '$1' to '$new_path'..."
 				$DRY_RUN || mv --no-clobber "$1" "$new_path"
 			fi
-			decho "Saving original filename to '${new_path}.${OUTPUT_METADATA_EXTENSION}'..."
-			$DRY_RUN || echo "Old file path       : $1" > "${new_path}.${OUTPUT_METADATA_EXTENSION}"
+
+			local new_metadata_path="${new_path}.${OUTPUT_METADATA_EXTENSION}"
+			decho "Saving original filename to '$new_metadata_path'..."
+			$DRY_RUN || echo "Corruption reason   : $file_err" >> "$new_metadata_path"
+			$DRY_RUN || echo "Old file path       : $1" >> "$new_metadata_path"
 		else
 			fail_file "$1" "File is corrupt: $file_err"
 		fi
