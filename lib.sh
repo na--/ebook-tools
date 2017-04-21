@@ -6,7 +6,7 @@ GREEN='\033[0;32m' #shellcheck disable=SC2034
 RED='\033[0;31m' #shellcheck disable=SC2034
 NC='\033[0m' #shellcheck disable=SC2034
 
-ISBN_REGEX='(?<![0-9])(977|978|979)?(([ -]?[0-9][ -]?){9}[0-9xX])(?![0-9])'
+ISBN_REGEX='(?<![0-9])(977|978|979)?+(([ -]?[0-9][ -]?){9}[0-9xX])(?![0-9-])'
 ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
 ISBN_IGNORED_FILES='^image/(png|jpeg|gif)$'
 ISBN_RET_SEPARATOR=","
