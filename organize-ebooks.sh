@@ -2,16 +2,20 @@
 
 set -euo pipefail
 
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m'
+
 OUTPUT_FOLDER="$(pwd)"
 OUTPUT_FOLDER_SEPARATE_UNSURE=false
 OUTPUT_FOLDER_UNSURE="$(pwd)"
-ISBN_REGEX='(?<![0-9])(978|979)?(([ -]?[0-9][ -]?){9}[0-9xX])(?![0-9])'
+ISBN_REGEX='(?<![0-9])(977|978|979)?(([ -]?[0-9][ -]?){9}[0-9xX])(?![0-9])'
 ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
 ISBN_IGNORED_FILES='^image/(png|jpeg|gif)$'
 #shellcheck disable=SC2016
-FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -} ${d[PUBLISHED]+(${d[PUBLISHED]%%-*}) }[${d[ISBN]}].${d[EXT]}"'
+FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]+ (${d[PUBLISHED]%%-*})}${d[ISBN]+ [${d[ISBN]}]}.${d[EXT]}"'
 #shellcheck disable=SC2016
-STDOUT_TEMPLATE='-e "from:\t${current_path}\nto:\t${new_path}\n"'
+STDOUT_TEMPLATE='-e "${GREEN}OK${NC}:\t${current_path}\nTO:\t${new_path}\n"'
 SYMLINK_ONLY=false
 DELETE_METADATA=false
 METADATA_EXTENSION="meta"
@@ -246,8 +250,62 @@ organize_by_isbns() {
 
 # Arguments: filename, reason (optional)
 organize_by_filename_and_meta() {
-	decho "TODO: organizing ebook $1 by the filename and metadata! TODO split filename into words, extract metadata stuff if present try to get the opf from the filename, but move it to a 'to check' folder if successful"
-	echo -e "SKIP:\t$1\nREASON:\t${2:-}\n"
+	local old_path
+	old_path="$1"
+
+	decho "Organizing '$old_path' by non-ISBN metadata and filename..."
+
+	local ebookmeta
+	ebookmeta="$(ebook-meta "$old_path" | grep -E '[a-zA-Z()]+ +: .*' )"
+	decho "Ebook metadata:"
+	echo "$ebookmeta" | debug_prefixer "	" 0 --width=80 -t
+
+	local title
+	title="$(echo "$ebookmeta" | grep '^Title' | awk -F' : ' '{ print $2 }' | sed -E 's/[^[:alnum:]]+/ /g' )"
+	local author
+	author="$(echo "$ebookmeta" | grep '^Author' | awk -F' : ' '{ print $2 }' | sed -e 's/ & .*//' -e 's/[^[:alpha:]]\+/ /g' )"
+	decho "Extracted title '$title' and author '$author'"
+
+	if [[ "$title" != "" && "$title" != "Unknown" && "$(echo "$title" | sed -e 's/[^[:alpha:]]\+//g' )" != "" ]]; then
+		decho "There is a relatively normal-looking title, searching for metadata..."
+		tmpmfile="$(mktemp --suffix='.txt')"
+		decho "Created temporary file for metadata downloads '$tmpmfile'"
+
+		finisher() {
+			decho "Successfully fetched metadata: "
+			debug_prefixer "[meta-$1] " 0 --width=100 -t < "$tmpmfile"
+			decho "Addding additional metadata to the end of the metadata file..."
+			echo "Old file path       : $old_path">> "$tmpmfile"
+			echo "Meta fetch method   : $1">> "$tmpmfile"
+			decho "Organizing '$old_path' (with '$tmpmfile')..."
+			move_or_link_ebook_file_and_metadata false "$old_path" "$tmpmfile"
+		}
+
+		if [[ "$author" != "" && "$author" != "Unknown" ]]; then
+			decho "Trying to fetch metadata by title '$title' and author '$author'..."
+			if fetch-ebook-metadata --verbose --title="$title" --author="$author" 2> >(debug_prefixer "[fetch-meta-t&a] " 0 --width=80 -s) | grep -E '[a-zA-Z()]+ +: .*'  > "$tmpmfile"; then
+				finisher "title&author"
+				return
+			fi
+
+			decho "Trying to swap places - author '$title' and title '$author'..."
+			if fetch-ebook-metadata --verbose --title="$author" --author="$title" 2> >(debug_prefixer "[fetch-meta-rev-t&a] " 0 --width=80 -s) | grep -E '[a-zA-Z()]+ +: .*'  > "$tmpmfile"; then
+				finisher "rev-title&author"
+				return
+			fi
+		fi
+
+		decho "Missing or unknown author, trying to fetch metadata by title '$title'..."
+		if fetch-ebook-metadata --verbose --title="$title" --author="$author" 2> >(debug_prefixer "[fetch-meta-t] " 0 --width=80 -s) | grep -E '[a-zA-Z()]+ +: .*'  > "$tmpmfile"; then
+			finisher "title"
+			return
+		fi
+
+		decho "Could not find anything, removing the temp file '$tmpmfile'..."
+		rm "$tmpmfile"
+	fi
+
+	echo -e "${RED}SKIP${NC}:\t$old_path\nREASON:\t${2:-}${2+; }Insufficient or wrong file name/metadata\n"
 }
 
 
