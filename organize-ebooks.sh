@@ -21,6 +21,9 @@ OUTPUT_FOLDER_SEPARATE_UNSURE=false
 OUTPUT_FOLDER_UNSURE="$(pwd)"
 OUTPUT_FOLDER_CORRUPT=
 
+# Requires Calibre 2.84+
+METADATA_FROM_ISBN_FETCH_ORDER="Goodreads,Amazon.com,Google,ISBNDB,WorldCat xISBN,OZON.ru"
+
 VERBOSE=false
 DEBUG_PREFIX_LENGTH=40
 
@@ -53,6 +56,8 @@ for i in "$@"; do
 			OUTPUT_FOLDER_UNSURE="${i#*=}"
 		;;
 		-oc=*|--output-folder-corrupt=*) OUTPUT_FOLDER_CORRUPT="${i#*=}" ;;
+
+		-mfo=*|--metadata-fetch-order=*) METADATA_FROM_ISBN_FETCH_ORDER="${i#*=}" ;;
 
 		-v|--verbose) VERBOSE=true ;;
 		--debug-prefix-length=*) DEBUG_PREFIX_LENGTH="${i#*=}" ;;
@@ -135,33 +140,50 @@ move_or_link_ebook_file_and_metadata() {
 	fi
 }
 
+
+# Uses Calibre's fetch-ebook-metadata CLI tool to download metadata from
+# online sources. The first parameter is the debug prefix, the rest are passed
+# directly to fetch-ebook-metadata
+fetch_metadata() {
+	decho "Calling fetch-ebook-metadata --verbose " "${@:2}"
+	fetch-ebook-metadata --verbose "${@:2}" 2> >(debug_prefixer "[$1] " 0 --width=100 -s) | grep -E '[a-zA-Z()]+ +: .*'
+}
+
 # Sequentially tries to fetch metadata for each of the supplied ISBNs; if any
 # is found, writes it to a tmp .txt file and calls organize_known_ebook()
 # Arguments: path, isbn (coma-separated)
 organize_by_isbns() {
-	local tmpmfile
-	local isbn
+	local isbn_sources
+	IFS=, read -ra isbn_sources <<< "$METADATA_FROM_ISBN_FETCH_ORDER"
 
+	local isbn
 	for isbn in $(echo "$2" | tr ',' '\n'); do
+		local tmpmfile
 		tmpmfile="$(mktemp --suffix='.txt')"
 		decho "Trying to fetch metadata for ISBN '$isbn' into temp file '$tmpmfile'..."
-		#TODO: download cover?
-		if fetch-ebook-metadata --verbose --isbn="$isbn" 2> >(debug_prefixer "[fetch-meta] " 0 --width=80 -s) | grep -E '[a-zA-Z()]+ +: .*'  > "$tmpmfile"; then
-			sleep 0.1
-			decho "Successfully fetched metadata: "
-			debug_prefixer "[meta] " 0 --width=100 -t < "$tmpmfile"
 
-			decho "Addding additional metadata to the end of the metadata file..."
-			{
-				echo "ISBN                : $isbn"
-				echo "All found ISBNs     : $2"
-				echo "Old file path       : $1"
-			} >> "$tmpmfile"
+		local isbn_source
+		for source in "${isbn_sources[@]:-}"; do
+			decho "Fetching metadata from ${source:-all sources}..."
+			if fetch_metadata "fetch-meta-${source:-all}" --isbn="$isbn" "${source:+--allowed-plugin=$source}" > "$tmpmfile"; then
+				sleep 0.1
+				decho "Successfully fetched metadata: "
+				debug_prefixer "[meta] " 0 --width=100 -t < "$tmpmfile"
 
-			decho "Organizing '$1' (with '$tmpmfile')..."
-			move_or_link_ebook_file_and_metadata true "$1" "$tmpmfile"
-			return
-		fi
+				decho "Addding additional metadata to the end of the metadata file..."
+				{
+					echo "ISBN                : $isbn"
+					echo "All found ISBNs     : $2"
+					echo "Old file path       : $1"
+					echo "Metadata source     : $source"
+				} >> "$tmpmfile"
+
+				decho "Organizing '$1' (with '$tmpmfile')..."
+				move_or_link_ebook_file_and_metadata true "$1" "$tmpmfile"
+				return
+			fi
+		done
+
 		decho "Removing temp file '$tmpmfile'..."
 		rm "$tmpmfile"
 	done
@@ -199,10 +221,6 @@ organize_by_filename_and_meta() {
 	if [[ "${title//[^[:alpha:]]/}" != "" && "$title" != "Unknown" ]]; then
 		decho "There is a relatively normal-looking title, searching for metadata..."
 
-		fetcher() {
-			fetch-ebook-metadata --verbose "${@:2}" 2> >(debug_prefixer "[fetch-meta-$1] " 0 --width=80 -s) | grep -E '[a-zA-Z()]+ +: .*'  > "$tmpmfile"
-		}
-
 		finisher() {
 			decho "Successfully fetched metadata: "
 			debug_prefixer "[meta-$1] " 0 --width=100 -t < "$tmpmfile"
@@ -223,19 +241,19 @@ organize_by_filename_and_meta() {
 
 		if [[ "${author//[[:space:]]/}" != "" && "$author" != "Unknown" ]]; then
 			decho "Trying to fetch metadata by title '$title' and author '$author'..."
-			if fetcher "title&author" --title="$title" --author="$author"; then
+			if fetch_metadata "fetch-meta-title&author" --title="$title" --author="$author" > "$tmpmfile"; then
 				finisher "title&author"
 				return
 			fi
 			decho "Trying to swap places - author '$title' and title '$author'..."
-			if fetcher "rev-title&author" --title="$author" --author="$title"; then
+			if fetch_metadata "fetch-meta-rev-title&author" --title="$author" --author="$title" > "$tmpmfile"; then
 				finisher "rev-title&author"
 				return
 			fi
 		fi
 
 		decho "Trying to fetch metadata only by title '$title'..."
-		if fetcher "title" --title="$title"; then
+		if fetch_metadata "fetch-meta-title" --title="$title" > "$tmpmfile"; then
 			finisher "title"
 			return
 		fi
@@ -245,7 +263,7 @@ organize_by_filename_and_meta() {
 	filename="$(basename "${old_path%.*}" | sed -E 's/[^[:alnum:]]+/ /g')"
 
 	decho "Trying to fetch metadata only the filename '$filename'..."
-	if fetcher "filename" --title="$filename"; then
+	if fetch_metadata "fetch-meta-filename" --title="$filename" > "$tmpmfile"; then
 		finisher "filename"
 		return
 	fi
