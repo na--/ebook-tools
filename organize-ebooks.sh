@@ -187,6 +187,9 @@ organize_by_filename_and_meta() {
 	decho "Ebook metadata:"
 	echo "$ebookmeta" | debug_prefixer "	" 0 --width=80 -t
 
+	tmpmfile="$(mktemp --suffix='.txt')"
+	decho "Created temporary file for metadata downloads '$tmpmfile'"
+
 	local title
 	title="$(echo "$ebookmeta" | grep_meta_val "Title" | sed -E 's/[^[:alnum:]]+/ /g' )"
 	local author
@@ -195,8 +198,6 @@ organize_by_filename_and_meta() {
 
 	if [[ "${title//[^[:alpha:]]/}" != "" && "$title" != "Unknown" ]]; then
 		decho "There is a relatively normal-looking title, searching for metadata..."
-		tmpmfile="$(mktemp --suffix='.txt')"
-		decho "Created temporary file for metadata downloads '$tmpmfile'"
 
 		fetcher() {
 			fetch-ebook-metadata --verbose "${@:2}" 2> >(debug_prefixer "[fetch-meta-$1] " 0 --width=80 -s) | grep -E '[a-zA-Z()]+ +: .*'  > "$tmpmfile"
@@ -238,12 +239,19 @@ organize_by_filename_and_meta() {
 			finisher "title"
 			return
 		fi
-
-		#TODO: use only the filename? useful for mangled file metadata but clear filenames
-
-		decho "Could not find anything, removing the temp file '$tmpmfile'..."
-		rm "$tmpmfile"
 	fi
+
+	local filename
+	filename="$(basename "${old_path%.*}" | sed -E 's/[^[:alnum:]]+/ /g')"
+
+	decho "Trying to fetch metadata only the filename '$filename'..."
+	if fetcher "filename" --title="$filename"; then
+		finisher "filename"
+		return
+	fi
+
+	decho "Could not find anything, removing the temp file '$tmpmfile'..."
+	rm "$tmpmfile"
 
 	skip_file "$old_path" "${2:-}${2+; }Insufficient or wrong file name/metadata"
 }

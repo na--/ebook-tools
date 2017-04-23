@@ -129,7 +129,7 @@ unique_filename() {
 # Returns a single value by key by parsing the calibre-style text metadata
 # hashmap that is passed to stdin
 grep_meta_val() {
-	grep --max-count=1 "^$1" | awk -F' : ' '{ print $2 }'
+	{ grep --max-count=1 "^$1" || true; } | awk -F' : ' '{ print $2 }'
 }
 
 
@@ -203,6 +203,8 @@ convert_to_txt() {
 #   - Try to extract the file as an archive with `7z`; if successful,
 #     recursively call search_file_for_isbns for all the extracted files
 #   - Try to convert the file to a .txt via convert_to_txt()
+# TODO: implement a progressive search that will eventually exhaust all
+# methods for extracting ISBNs?
 search_file_for_isbns() {
 	decho "Searching file '$1' for ISBN numbers..."
 	local isbns
