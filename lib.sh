@@ -15,6 +15,16 @@ ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
 ISBN_IGNORED_FILES='^image/(png|jpeg|gif)$'
 ISBN_RET_SEPARATOR=","
 
+# These options specify if and how we should reoder ISBN_DIRECT_GREP files
+# before passing them to find_isbns(). If true, the first
+# ISBN_GREP_RF_SCAN_FIRST lines of the files are passed as is, then we pass
+# the last ISBN_GREP_RF_REVERSE_LAST in reverse order and finally we pass the
+# remainder in the middle. There is no issue if files have fewer lines, there
+# will be no duplicate lines passed to grep.
+ISBN_GREP_REORDER_FILES=true
+ISBN_GREP_RF_SCAN_FIRST=400
+ISBN_GREP_RF_REVERSE_LAST=50
+
 TESTED_ARCHIVE_EXTENSIONS='^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr)$'
 
 # If the VERBOSE flag is on, outputs the arguments to stderr
@@ -87,6 +97,26 @@ is_isbn_valid() {
 		fi
 	fi
 	return 1
+}
+
+# Reads and echoes only n lines from STDIN, without consuming the rest
+cat_n() {
+	local lines=0
+	while ((lines++ < $1 )) && read -r line; do
+		echo "$line"
+	done
+}
+
+# If ISBN_GREP_REORDER_FILES is enabled, reorders the specified file according
+# to the values of ISBN_GREP_RF_SCAN_FIRST and ISBN_GREP_RF_REVERSE_LAST
+cat_file_for_isbn_grep() {
+	if [[ "$ISBN_GREP_REORDER_FILES" == true ]]; then
+		decho -n "Reordering input file (if possible, read first $ISBN_GREP_RF_SCAN_FIRST lines normally, then read last $ISBN_GREP_RF_REVERSE_LAST lines in reverse and then read the rest"
+
+		cat "$1" | { cat_n "$ISBN_GREP_RF_SCAN_FIRST"; tac | { cat_n "$ISBN_GREP_RF_REVERSE_LAST"; tac; } }
+	else
+		cat "$1"
+	fi
 }
 
 
@@ -221,7 +251,7 @@ search_file_for_isbns() {
 	decho "Ebook MIME type: $mimetype"
 	if [[ "$mimetype" =~ $ISBN_DIRECT_GREP_FILES ]]; then
 		decho "Ebook is in text format, trying to find ISBN directly"
-		isbns="$(find_isbns < "$1")"
+		isbns="$(cat_file_for_isbn_grep "$1" | find_isbns)"
 		if [[ "$isbns" != "" ]]; then
 			decho "Extracted ISBNs '$isbns' from the text file contents!"
 			echo -n "$isbns"
@@ -276,7 +306,7 @@ search_file_for_isbns() {
 	decho "Converting ebook to text format in file '$tmptxtfile'..."
 	if convert_to_txt "$1" "$tmptxtfile" "$mimetype" 2>&1 | debug_prefixer "[ebook2txt] " 0 --width=80 -s; then
 		decho "Conversion is done, trying to find ISBNs in the text output..."
-		isbns="$(find_isbns < "$tmptxtfile")"
+		isbns="$(cat_file_for_isbn_grep "$tmptxtfile" | find_isbns)"
 		if [[ "$isbns" != "" ]]; then
 			decho "Extracted ISBNs '$isbns' from the converted text output!"
 			echo -n "$isbns"

@@ -66,6 +66,16 @@ for i in "$@"; do
 		--isbn-direct-grep-files=*) ISBN_DIRECT_GREP_FILES="${i#*=}" ;;
 		--isbn-extraction-ignore=*) ISBN_IGNORED_FILES="${i#*=}" ;;
 		--tested-archive-extensions=*) TESTED_ARCHIVE_EXTENSIONS="${i#*=}" ;;
+		--reorder-files-for-grep=*)
+			i="${i#*=}"
+			if [[ "$i" == "false" ]]; then
+				ISBN_GREP_REORDER_FILES=false
+			else
+				ISBN_GREP_REORDER_FILES=true
+				ISBN_GREP_RF_SCAN_FIRST="${i%,*}"
+				ISBN_GREP_RF_REVERSE_LAST="${i##*,}"
+			fi
+		;;
 
 		-h|--help) print_help; exit 1 ;;
 		-*) echo "Invalid option '$i'"; exit 4; ;;
