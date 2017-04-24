@@ -9,10 +9,10 @@ NC='\033[0m' #shellcheck disable=SC2034
 # This regular expression should match most ISBN10/13-like sequences in
 # texts. To minimize false-positives, matches should be passed through
 # is_isbn_valid() or another ISBN validator
-ISBN_REGEX='(?<![0-9])(977|978|979)?+(([ -]?[0-9][ -]?){9}[0-9xX])(?![0-9-])'
+ISBN_REGEX='(?<![0-9])(977|978|979)?+(([ –—-]?[0-9][ –—-]?){9}[0-9xX])(?![0-9-])'
 
 ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
-ISBN_IGNORED_FILES='^image/(png|jpeg|gif)$'
+ISBN_IGNORED_FILES='^image/(png|jpeg|gif)|application/x-shockwave-flash$'
 ISBN_RET_SEPARATOR=","
 
 # These options specify if and how we should reoder ISBN_DIRECT_GREP files
@@ -141,7 +141,7 @@ cat_file_for_isbn_grep() {
 # the order) and finally validates them using is_isbn_valid() and returns
 # them coma-separated
 find_isbns() {
-	{ grep -oP "$ISBN_REGEX" || true; } | tr -d ' -' | awk '!x[$0]++' | (
+	{ grep -oP "$ISBN_REGEX" || true; } | tr -c -d '0-9xX\n' | awk '!x[$0]++' | (
 		while IFS='' read -r isbn || [[ -n "$isbn" ]]; do
 			if is_isbn_valid "$isbn"; then
 				echo "$isbn"

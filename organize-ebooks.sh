@@ -107,7 +107,7 @@ move_or_link_ebook_file_and_metadata() {
 	declare -A d=( ["EXT"]="${current_path##*.}" ) # metadata and the file extension
 
 	while IFS='' read -r line || [[ -n "$line" ]]; do
-		d["$(echo "${line%%:*}" | sed -e 's/[ \t]*$//' -e 's/ /_/g' -e 's/[^a-zA-Z0-9_]//g' -e 's/\(.*\)/\U\1/')"]="$(echo "${line#*: }" | sed -e 's/[\\/\*\?<>\|\x01-\x1F\x7F\x22\x24\x60]/_/g' | cut -c 1-120 )"
+		d["$(echo "${line%%:*}" | sed -e 's/[ \t]*$//' -e 's/ /_/g' -e 's/[^a-zA-Z0-9_]//g' -e 's/\(.*\)/\U\1/')"]="$(echo "${line#*: }" | sed -e 's/[\\/\*\?<>\|\x01-\x1F\x7F\x22\x24\x60]/_/g' | cut -c 1-110 )"
 	done < "$3"
 
 	decho "Variables that will be used for the new filename construction:"
@@ -169,7 +169,7 @@ fetch_metadata() {
 		args+=("${isbn_source:+--allowed-plugin=$isbn_source}")
 	done
 
-	decho "Calling fetch-ebook-metadata --verbose ${args[@]} ${@:3}"
+	decho "Calling fetch-ebook-metadata --verbose" "${args[*]}" "${@:3}"
 	fetch-ebook-metadata --verbose "${args[@]}" "${@:3}" 2> >(debug_prefixer "[$1] " 0 --width=100 -s) | grep -E '[a-zA-Z()]+ +: .*'
 }
 
