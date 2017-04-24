@@ -27,6 +27,23 @@ ISBN_GREP_RF_REVERSE_LAST=50
 
 TESTED_ARCHIVE_EXTENSIONS='^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr)$'
 
+# Should be matched against a lowercase filename.ext, lines that start with # and newlines are removed
+#shellcheck disable=SC2034
+NO_ISBN_IGNORE_REGEX="$(echo '
+# Images:
+\.(png|jpg|jpeg|gif)$
+# Perdiodicals with filenames that contain something like 2010-11, 199010, 2015_7, 20110203:
+|(^|[^0-9])(19|20)[0-9][0-9][ _\.-]*(0?[1-9]|10|11|12)([0-9][0-9])?($|[^0-9])
+# Periodicals with month numbers before the year
+|(^|[^0-9])([0-9][0-9])?(0?[1-9]|10|11|12)[ _\.-]*(19|20)[0-9][0-9]($|[^0-9])
+# Periodicals with months or issues
+|((^|[^a-z])(jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|june?|july?|aug(ust)?|sep(tember)?|oct(ober)?|nov(ember)?|dec(ember)?|mag(azine)?|issue|#[ _\.-]*[0-9]+)+($|[^a-z]))
+# Periodicals with seasons and years
+|((spr(ing)?|sum(mer)?|aut(umn)?|win(ter)?|fall)[ _\.-]*(19|20)[0-9][0-9])
+|((19|20)[0-9][0-9][ _\.-]*(spr(ing)?|sum(mer)?|aut(umn)?|win(ter)?|fall))
+# TODO: include words like monthly, vol(ume)?
+' | grep -v '^#' | tr -d '\n')"
+
 # If the VERBOSE flag is on, outputs the arguments to stderr
 decho () {
 	if [[ "${VERBOSE:-false}" == true ]]; then
@@ -111,9 +128,9 @@ cat_n() {
 # to the values of ISBN_GREP_RF_SCAN_FIRST and ISBN_GREP_RF_REVERSE_LAST
 cat_file_for_isbn_grep() {
 	if [[ "$ISBN_GREP_REORDER_FILES" == true ]]; then
-		decho -n "Reordering input file (if possible, read first $ISBN_GREP_RF_SCAN_FIRST lines normally, then read last $ISBN_GREP_RF_REVERSE_LAST lines in reverse and then read the rest"
+		decho "Reordering input file (if possible, read first $ISBN_GREP_RF_SCAN_FIRST lines normally, then read last $ISBN_GREP_RF_REVERSE_LAST lines in reverse and then read the rest"
 
-		cat "$1" | { cat_n "$ISBN_GREP_RF_SCAN_FIRST"; tac | { cat_n "$ISBN_GREP_RF_REVERSE_LAST"; tac; } }
+		{ cat_n "$ISBN_GREP_RF_SCAN_FIRST"; tac | { cat_n "$ISBN_GREP_RF_REVERSE_LAST"; tac; } } < "$1"
 	else
 		cat "$1"
 	fi

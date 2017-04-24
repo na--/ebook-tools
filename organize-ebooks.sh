@@ -8,10 +8,14 @@ DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 
 VERSION="0.1"
 
-ORGANIZE_WITHOUT_ISBN=false
 DRY_RUN=false
 SYMLINK_ONLY=false
 DELETE_METADATA=false
+
+ORGANIZE_ISBN_META_FETCH_ORDER="Goodreads,Amazon.com,Google,ISBNDB,WorldCat xISBN,OZON.ru" # Requires Calibre 2.84+
+ORGANIZE_WITHOUT_ISBN=false
+ORGANIZE_WITHOUT_ISBN_IGNORED="$NO_ISBN_IGNORE_REGEX" # Periodicals and images
+ORGANIZE_WITHOUT_ISBN_SOURCES="Goodreads,Amazon.com,Google,OZON.ru" # Requires Calibre 2.84+
 
 #shellcheck disable=SC2016
 OUTPUT_FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]+ (${d[PUBLISHED]%%-*})}${d[ISBN]+ [${d[ISBN]}]}.${d[EXT]}"'
@@ -20,9 +24,6 @@ OUTPUT_FOLDER="$(pwd)"
 OUTPUT_FOLDER_SEPARATE_UNSURE=false
 OUTPUT_FOLDER_UNSURE="$(pwd)"
 OUTPUT_FOLDER_CORRUPT=
-
-# Requires Calibre 2.84+
-METADATA_FROM_ISBN_FETCH_ORDER="Goodreads,Amazon.com,Google,ISBNDB,WorldCat xISBN,OZON.ru"
 
 VERBOSE=false
 DEBUG_PREFIX_LENGTH=40
@@ -38,10 +39,14 @@ print_help() {
 
 for i in "$@"; do
 	case $i in
-		-owi|--organize--without--isbn) ORGANIZE_WITHOUT_ISBN=true ;;
 		-d|--dry-run) DRY_RUN=true ;;
 		-sl|--symlink-only) SYMLINK_ONLY=true ;;
 		-dm|--delete-metadata) DELETE_METADATA=true ;;
+
+		-mfo=*|--metadata-fetch-order=*) ORGANIZE_ISBN_META_FETCH_ORDER="${i#*=}" ;;
+		-owi|--organize--without--isbn) ORGANIZE_WITHOUT_ISBN=true ;;
+		-owii=*|--organize--without--isbn-ignored=*) ORGANIZE_WITHOUT_ISBN_IGNORED="${i#*=}" ;;
+		-owis=*|--organize--without--isbn-sources=*) ORGANIZE_WITHOUT_ISBN_SOURCES="${i#*=}" ;;
 
 		-oft=*|--output-filename-template=*) OUTPUT_FILENAME_TEMPLATE="${i#*=}" ;;
 		-ome=*|--output-metadata-extension=*) OUTPUT_METADATA_EXTENSION="${i#*=}" ;;
@@ -56,8 +61,6 @@ for i in "$@"; do
 			OUTPUT_FOLDER_UNSURE="${i#*=}"
 		;;
 		-oc=*|--output-folder-corrupt=*) OUTPUT_FOLDER_CORRUPT="${i#*=}" ;;
-
-		-mfo=*|--metadata-fetch-order=*) METADATA_FROM_ISBN_FETCH_ORDER="${i#*=}" ;;
 
 		-v|--verbose) VERBOSE=true ;;
 		--debug-prefix-length=*) DEBUG_PREFIX_LENGTH="${i#*=}" ;;
@@ -164,18 +167,18 @@ fetch_metadata() {
 # Arguments: path, isbn (coma-separated)
 organize_by_isbns() {
 	local isbn_sources
-	IFS=, read -ra isbn_sources <<< "$METADATA_FROM_ISBN_FETCH_ORDER"
+	IFS=, read -ra isbn_sources <<< "$ORGANIZE_ISBN_META_FETCH_ORDER"
 
 	local isbn
-	for isbn in $(echo "$2" | tr ',' '\n'); do
+	for isbn in $(echo "$2" | tr "$ISBN_RET_SEPARATOR" '\n'); do
 		local tmpmfile
 		tmpmfile="$(mktemp --suffix='.txt')"
 		decho "Trying to fetch metadata for ISBN '$isbn' into temp file '$tmpmfile'..."
 
 		local isbn_source
-		for source in "${isbn_sources[@]:-}"; do
-			decho "Fetching metadata from ${source:-all sources}..."
-			if fetch_metadata "fetch-meta-${source:-all}" --isbn="$isbn" "${source:+--allowed-plugin=$source}" > "$tmpmfile"; then
+		for isbn_source in "${isbn_sources[@]:-}"; do
+			decho "Fetching metadata from ${isbn_source:-all sources}..."
+			if fetch_metadata "fetch-meta-${isbn_source:-all}" --isbn="$isbn" "${isbn_source:+--allowed-plugin=$isbn_source}" > "$tmpmfile"; then
 				sleep 0.1
 				decho "Successfully fetched metadata: "
 				debug_prefixer "[meta] " 0 --width=100 -t < "$tmpmfile"
@@ -185,7 +188,7 @@ organize_by_isbns() {
 					echo "ISBN                : $isbn"
 					echo "All found ISBNs     : $2"
 					echo "Old file path       : $1"
-					echo "Metadata source     : $source"
+					echo "Metadata source     : $isbn_source"
 				} >> "$tmpmfile"
 
 				decho "Organizing '$1' (with '$tmpmfile')..."
@@ -214,6 +217,18 @@ organize_by_filename_and_meta() {
 
 	decho "Organizing '$old_path' by non-ISBN metadata and filename..."
 
+	local lowercase_name
+	lowercase_name="$(basename "$old_path" | tr '[:upper:]' '[:lower:]')"
+	if [[ "$lowercase_name" =~ $ORGANIZE_WITHOUT_ISBN_IGNORED ]]; then
+		local matches
+		matches="[$(echo "$lowercase_name" | grep -oE "$NO_ISBN_IGNORE_REGEX" | paste -sd';')]"
+		decho "Parts of the filename match the ignore regex: [$matches]"
+		skip_file "$old_path" "${2:-}${2+; }File matches the ignore regex ($matches)"
+		return
+	else
+		decho "File does not match the ignore regex, continuing..."
+	fi
+
 	local ebookmeta
 	ebookmeta="$(ebook-meta "$old_path" | grep -E '[a-zA-Z()]+ +: .*' )"
 	decho "Ebook metadata:"
@@ -235,9 +250,11 @@ organize_by_filename_and_meta() {
 			decho "Successfully fetched metadata: "
 			debug_prefixer "[meta-$1] " 0 --width=100 -t < "$tmpmfile"
 			decho "Addding additional metadata to the end of the metadata file..."
-			echo "Old file path       : $old_path" >> "$tmpmfile"
-			echo "Meta fetch method   : $1" >> "$tmpmfile"
-			echo "$ebookmeta" | sed -E 's/^(.+[^ ])   ([ ]+): /OF \1\2: /' >> "$tmpmfile"
+			{
+				echo "Old file path       : $old_path" >> "$tmpmfile"
+				echo "Meta fetch method   : $1" >> "$tmpmfile"
+				echo "$ebookmeta" | sed -E 's/^(.+[^ ])   ([ ]+): /OF \1\2: /'
+			} >> "$tmpmfile"
 
 			local isbn
 			isbn="$(find_isbns < "$tmpmfile")"
