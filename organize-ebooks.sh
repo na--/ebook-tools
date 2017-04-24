@@ -6,7 +6,7 @@ DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 # shellcheck source=./lib.sh
 . "$DIR/lib.sh"
 
-VERSION="0.1"
+VERSION="0.2"
 
 DRY_RUN=false
 SYMLINK_ONLY=false
