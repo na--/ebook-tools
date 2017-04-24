@@ -198,17 +198,27 @@ check_file_for_corruption() {
 	local mimetype
 	mimetype="$(file --brief --mime-type "$1")"
 
-	if [[ "$ext" == "pdf" && "$mimetype" != "application/pdf" ]]; then
-		echo "The file has a .pdf extension but '$mimetype' MIME type!"
+	if [[ "$mimetype" == "application/octet-stream" && "$ext" =~ ^(pdf|djv|djvu)$ ]]; then
+		echo "The file has a .$ext extension but '$mimetype' MIME type!"
 	elif [[ "$mimetype" == "application/pdf" ]]; then
 		decho "Checking pdf file for integrity..."
 		if ! command_exists pdfinfo; then
 			decho "pdfinfo does not exist, could not check if pdf is OK"
-		elif ! pdfinfo "$1" 2> >(tail | debug_prefixer "[pdfinfo-err|tail] " 0 --width=80 -s) | debug_prefixer "[pdfinfo] " 0 --width=80 -t; then
-			echo "Has pdf MIME type or extension, but pdfinfo returned an error!"
-			return
 		else
-			decho "Looks ok, pdfinfo returned successfully"
+			local pdfinfo_output
+			if ! pdfinfo_output="$(pdfinfo "$1" 2> >(tail | debug_prefixer "[pdfinfo-err|tail] " 0 --width=80 -s))"; then
+				decho "pdfinfo returned an error!"
+				echo "$pdfinfo_output" | debug_prefixer "[pdfinfo] " 0 --width=80 -t
+				echo "Has pdf MIME type or extension, but pdfinfo returned an error!"
+				return
+			else
+				decho "pdfinfo returned successfully"
+				echo "$pdfinfo_output" | debug_prefixer "[pdfinfo] " 0 --width=80 -t
+				if echo "$pdfinfo_output" | grep --quiet -E "^Page size:\s*0 x 0 pts$"; then
+					decho "pdf is corrupt anyway, page size property is empty!"
+					echo "pdf can be parsed, but page size is 0 x 0 pts!"
+				fi
+			fi
 		fi
 	fi
 

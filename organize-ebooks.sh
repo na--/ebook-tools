@@ -9,6 +9,7 @@ DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 VERSION="0.2"
 
 DRY_RUN=false
+CORRUPTION_CHECK_ONLY=false
 SYMLINK_ONLY=false
 DELETE_METADATA=false
 
@@ -41,6 +42,7 @@ for i in "$@"; do
 	case $i in
 		-d|--dry-run) DRY_RUN=true ;;
 		-sl|--symlink-only) SYMLINK_ONLY=true ;;
+		-cco|--corruption-check-only) CORRUPTION_CHECK_ONLY=true ;;
 		-dm|--delete-metadata) DELETE_METADATA=true ;;
 
 		-mfo=*|--metadata-fetch-order=*) ORGANIZE_ISBN_META_FETCH_ORDER="${i#*=}" ;;
@@ -338,8 +340,12 @@ organize_file() {
 			$DRY_RUN || echo "Corruption reason   : $file_err" >> "$new_metadata_path"
 			$DRY_RUN || echo "Old file path       : $1" >> "$new_metadata_path"
 		else
+			decho "Output folder for corrupt files is not set, doing nothing"
 			fail_file "$1" "File is corrupt: $file_err"
 		fi
+	elif [[ "$CORRUPTION_CHECK_ONLY" == true ]]; then
+		decho "We are only checking for corruption, do not continue organising..."
+		skip_file "$1" "File appears OK"
 	else
 		decho "File passed the corruption test, looking for ISBNs..."
 
