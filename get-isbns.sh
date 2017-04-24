@@ -8,6 +8,9 @@ DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 
 ISBN_RET_SEPARATOR="\n"
 
+#TODO: add options, help
+#TODO: add option to limit the number of ISBNs?
+
 if [[ "$#" == "0" ]]; then
 	find_isbns
 else

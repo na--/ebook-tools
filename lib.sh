@@ -250,8 +250,6 @@ convert_to_txt() {
 #   - Try to extract the file as an archive with `7z`; if successful,
 #     recursively call search_file_for_isbns for all the extracted files
 #   - Try to convert the file to a .txt via convert_to_txt()
-# TODO: implement a progressive search that will eventually exhaust all
-# methods for extracting ISBNs?
 search_file_for_isbns() {
 	decho "Searching file '$1' for ISBN numbers..."
 	local isbns
