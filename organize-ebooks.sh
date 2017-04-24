@@ -15,7 +15,7 @@ DELETE_METADATA=false
 ORGANIZE_ISBN_META_FETCH_ORDER="Goodreads,Amazon.com,Google,ISBNDB,WorldCat xISBN,OZON.ru" # Requires Calibre 2.84+
 ORGANIZE_WITHOUT_ISBN=false
 ORGANIZE_WITHOUT_ISBN_IGNORED="$NO_ISBN_IGNORE_REGEX" # Periodicals and images
-ORGANIZE_WITHOUT_ISBN_SOURCES="Goodreads,Amazon.com,Google,OZON.ru" # Requires Calibre 2.84+
+ORGANIZE_WITHOUT_ISBN_SOURCES="Goodreads,Amazon.com,Google" # Requires Calibre 2.84+, previous versions will search in all enabled sources in the GUI
 
 #shellcheck disable=SC2016
 OUTPUT_FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]+ (${d[PUBLISHED]%%-*})}${d[ISBN]+ [${d[ISBN]}]}.${d[EXT]}"'
@@ -154,12 +154,23 @@ move_or_link_ebook_file_and_metadata() {
 }
 
 
+
+
 # Uses Calibre's fetch-ebook-metadata CLI tool to download metadata from
-# online sources. The first parameter is the debug prefix, the rest are passed
-# directly to fetch-ebook-metadata
+# online sources. The first parameter is the debug prefix, the second is the
+# coma-separated list of allowed plugins and the rest are passed directly
+# to fetch-ebook-metadata
 fetch_metadata() {
-	decho "Calling fetch-ebook-metadata --verbose " "${@:2}"
-	fetch-ebook-metadata --verbose "${@:2}" 2> >(debug_prefixer "[$1] " 0 --width=100 -s) | grep -E '[a-zA-Z()]+ +: .*'
+	local isbn_sources
+	IFS=, read -ra isbn_sources <<< "$2"
+
+	local isbn_source="" args=()
+	for isbn_source in "${isbn_sources[@]:-}"; do
+		args+=("${isbn_source:+--allowed-plugin=$isbn_source}")
+	done
+
+	decho "Calling fetch-ebook-metadata --verbose ${args[@]} ${@:3}"
+	fetch-ebook-metadata --verbose "${args[@]}" "${@:3}" 2> >(debug_prefixer "[$1] " 0 --width=100 -s) | grep -E '[a-zA-Z()]+ +: .*'
 }
 
 # Sequentially tries to fetch metadata for each of the supplied ISBNs; if any
@@ -178,7 +189,7 @@ organize_by_isbns() {
 		local isbn_source
 		for isbn_source in "${isbn_sources[@]:-}"; do
 			decho "Fetching metadata from ${isbn_source:-all sources}..."
-			if fetch_metadata "fetch-meta-${isbn_source:-all}" --isbn="$isbn" "${isbn_source:+--allowed-plugin=$isbn_source}" > "$tmpmfile"; then
+			if fetch_metadata "fetch-meta-${isbn_source:-all}" "${isbn_source:-}" --isbn="$isbn" > "$tmpmfile"; then
 				sleep 0.1
 				decho "Successfully fetched metadata: "
 				debug_prefixer "[meta] " 0 --width=100 -t < "$tmpmfile"
@@ -268,19 +279,19 @@ organize_by_filename_and_meta() {
 
 		if [[ "${author//[[:space:]]/}" != "" && "$author" != "Unknown" ]]; then
 			decho "Trying to fetch metadata by title '$title' and author '$author'..."
-			if fetch_metadata "fetch-meta-title&author" --title="$title" --author="$author" > "$tmpmfile"; then
+			if fetch_metadata "fetch-meta-title&author" "$ORGANIZE_WITHOUT_ISBN_SOURCES" --title="$title" --author="$author" > "$tmpmfile"; then
 				finisher "title&author"
 				return
 			fi
 			decho "Trying to swap places - author '$title' and title '$author'..."
-			if fetch_metadata "fetch-meta-rev-title&author" --title="$author" --author="$title" > "$tmpmfile"; then
+			if fetch_metadata "fetch-meta-rev-title&author" "$ORGANIZE_WITHOUT_ISBN_SOURCES" --title="$author" --author="$title" > "$tmpmfile"; then
 				finisher "rev-title&author"
 				return
 			fi
 		fi
 
 		decho "Trying to fetch metadata only by title '$title'..."
-		if fetch_metadata "fetch-meta-title" --title="$title" > "$tmpmfile"; then
+		if fetch_metadata "fetch-meta-title" "$ORGANIZE_WITHOUT_ISBN_SOURCES" --title="$title" > "$tmpmfile"; then
 			finisher "title"
 			return
 		fi
@@ -290,7 +301,7 @@ organize_by_filename_and_meta() {
 	filename="$(basename "${old_path%.*}" | sed -E 's/[^[:alnum:]]+/ /g')"
 
 	decho "Trying to fetch metadata only the filename '$filename'..."
-	if fetch_metadata "fetch-meta-filename" --title="$filename" > "$tmpmfile"; then
+	if fetch_metadata "fetch-meta-filename" "$ORGANIZE_WITHOUT_ISBN_SOURCES" --title="$filename" > "$tmpmfile"; then
 		finisher "filename"
 		return
 	fi
