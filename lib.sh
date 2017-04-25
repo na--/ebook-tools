@@ -2,8 +2,11 @@
 
 set -euo pipefail
 
+VERSION="0.2" #shellcheck disable=SC2034
+
 GREEN='\033[0;32m' #shellcheck disable=SC2034
 RED='\033[0;31m' #shellcheck disable=SC2034
+BOLD='\033[1m' #shellcheck disable=SC2034
 NC='\033[0m' #shellcheck disable=SC2034
 
 # This regular expression should match most ISBN10/13-like sequences in
@@ -266,7 +269,7 @@ search_file_for_isbns() {
 
 	isbns="$(echo "$1" | find_isbns)"
 	if [[ "$isbns" != "" ]]; then
-		decho "Extracted ISBNs '$isbns' from filename!"
+		decho "Extracted ISBNs '$isbns' from file path!"
 		echo -n "$isbns"
 		return
 	fi

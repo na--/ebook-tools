@@ -3,10 +3,8 @@
 set -euo pipefail
 
 DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
-# shellcheck source=./lib.sh
-. "$DIR/lib.sh"
-
-VERSION="0.2"
+# shellcheck source=./lib-org.sh
+. "$DIR/lib-org.sh"
 
 DRY_RUN=false
 CORRUPTION_CHECK_ONLY=false
@@ -18,9 +16,6 @@ ORGANIZE_WITHOUT_ISBN=false
 ORGANIZE_WITHOUT_ISBN_IGNORED="$NO_ISBN_IGNORE_REGEX" # Periodicals and images
 ORGANIZE_WITHOUT_ISBN_SOURCES="Goodreads,Amazon.com,Google" # Requires Calibre 2.84+, previous versions will search in all enabled sources in the GUI
 
-#shellcheck disable=SC2016
-OUTPUT_FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]+ (${d[PUBLISHED]%%-*})}${d[ISBN]+ [${d[ISBN]}]}.${d[EXT]}"'
-OUTPUT_METADATA_EXTENSION="meta"
 OUTPUT_FOLDER="$(pwd)"
 OUTPUT_FOLDER_SEPARATE_UNSURE=false
 OUTPUT_FOLDER_UNSURE="$(pwd)"
@@ -33,7 +28,7 @@ DEBUG_PREFIX_LENGTH=40
 print_help() {
 	echo "eBook Organizer v$VERSION"
 	echo
-	echo "Usage: organize-ebooks.sh [OPTIONS] EBOOK_PATHS..."
+	echo "Usage: $(basename "${BASH_SOURCE[0]}") [OPTIONS] EBOOK_PATHS..."
 	echo
 	echo "For information about the possible options, see the beginning of the script itself"
 }
@@ -231,7 +226,7 @@ organize_by_filename_and_meta() {
 	decho "Organizing '$old_path' by non-ISBN metadata and filename..."
 
 	local lowercase_name
-	lowercase_name="$(basename "$old_path" | tr '[:upper:]' '[:lower:]')"
+	lowercase_name="$(basename "$old_path" | sed -E 's/[[:upper:]]+/\L&/g')"
 	if [[ "$lowercase_name" =~ $ORGANIZE_WITHOUT_ISBN_IGNORED ]]; then
 		local matches
 		matches="[$(echo "$lowercase_name" | grep -oE "$NO_ISBN_IGNORE_REGEX" | paste -sd';')]"
