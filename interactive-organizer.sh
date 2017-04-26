@@ -14,7 +14,6 @@ CUSTOM_MOVE_BASE_DIR=""
 
 VERBOSE=true
 
-export GREP_COLOR='1;32'
 
 print_help() {
 	echo "Interactive eBook organizer v$VERSION"
@@ -120,38 +119,42 @@ move_file_meta() {
 	echo TODO
 }
 
+cgrep() {
+	GREP_COLOR="$1" grep --color=always -iE "^|$2"
+}
+
 review_file() {
 	local cf_path="$1" metadata_path="$1.${OUTPUT_METADATA_EXTENSION}"
-	local cf_name cf_tokens old_path old_name old_name_hl
+	local cf_name cf_tokens old_path old_name old_name_hl missing_words header=""
 	cf_name="$(basename "$cf_path")"
 	cf_tokens="$(echo "${cf_name%.*}" | tokenize '|')"
 
-	echo -n "File	'$cf_name' (in '${cf_path%/*}/')"
+	header="File	'$cf_name' (in '${cf_path%/*}/')"
 	if [[ -f "$metadata_path" ]]; then
-		echo -e " ${BOLD}[has metadata]${NC}"
+		header="${header} ${BOLD}[has metadata]${NC}"
 
 		old_path="$(grep_meta_val "Old file path" < "$metadata_path")"
 		old_name="$(basename "$old_path")"
-		old_name_hl="$(echo "$old_name" | { grep -i --color=always -E "$cf_tokens" || echo "$old_name"; } )"
-		echo -e "Old	'$old_name_hl' (in '${old_path%/*}/')"
+		missing_words="$(echo "${old_name%.*}" | tokenize '\n' | { grep -ivE "^($cf_tokens)+\$${IGNORED_DIFFERENCES:+|^$IGNORED_DIFFERENCES\$}" || true; } | paste -sd '|')"
 
-		local missing_words
-		missing_words="$(echo "${old_name%.*}" | tokenize '\n' | { grep -i -v -E "^($cf_tokens)+\$" || true; } | paste -sd ',')"
+		old_name_hl="$(echo "$old_name" | cgrep '1;31' "$missing_words" | cgrep '1;32' "$cf_tokens" | cgrep '1;30' "$IGNORED_DIFFERENCES" )"
+		header="${header}\nOld	'$old_name_hl' (in '${old_path%/*}/')"
+
 		if [[ "$missing_words" == "" ]]; then
-			echo -e "${BOLD}No missing words from the old filename in the new!${NC}"
+			header="${header}\n${BOLD}No missing words from the old filename in the new!${NC}"
 			if [[ "$QUICK_MODE" == true ]]; then
 				echo "Quick mode enabled, skipping to the next file"
 				return
 			fi
 		else
-			echo -e "Missing words from the old file name: ${BOLD}$missing_words${NC}"
+			header="${header}\nMissing words from the old file name: ${BOLD}$missing_words${NC}"
 		fi
 	else
 		metadata_path=""
 	fi
 
 	local opt
-	while opt="$(get_option)"; do
+	while echo -e "$header"; opt="$(get_option)"; do
 		echo "Chosen option: $opt"
 		case "$opt" in
 			[0-9])
