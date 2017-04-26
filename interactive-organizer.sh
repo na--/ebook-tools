@@ -3,16 +3,15 @@
 set -euo pipefail
 
 DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
-# shellcheck source=./lib-org.sh
-. "$DIR/lib-org.sh"
+# shellcheck source=./lib.sh
+. "$DIR/lib.sh"
 
 OUTPUT_FOLDERS=()
 
 QUICK_MODE=false
 MIN_TOKEN_LENGTH=4
-CUSTOM_MOVE_BASE_DIR=""
-
 IGNORED_DIFFERENCES=""
+CUSTOM_MOVE_BASE_DIR=""
 
 VERBOSE=true
 
@@ -30,8 +29,9 @@ for i in "$@"; do
 	case $i in
 		-o=*|--output-folder=*) OUTPUT_FOLDERS+=("${i#*=}") ;;
 
+		-qm=*|--quick-mode=*) QUICK_MODE="${i#*=}" ;;
 		-mtl=*|--min-token-length=*) MIN_TOKEN_LENGTH="${i#*=}" ;;
-		-qm=*|--min-token-length=*) MIN_TOKEN_LENGTH="${i#*=}" ;;
+		-id=*|--ignored-differences=*) IGNORED_DIFFERENCES="${i#*=}" ;;
 		-cmbd=*|--custom-move-base-dir=*) CUSTOM_MOVE_BASE_DIR="${i#*=}" ;;
 
 		-oft=*|--output-filename-template=*) OUTPUT_FILENAME_TEMPLATE="${i#*=}" ;;
@@ -134,7 +134,7 @@ move_file_meta() {
 
 review_file() {
 	local cf_path="$1" metadata_path="$1.${OUTPUT_METADATA_EXTENSION}"
-	local cf_name cf_tokens old_path old_name
+	local cf_name cf_tokens old_path old_name old_name_hl
 	cf_name="$(basename "$cf_path")"
 	cf_tokens="$(tokenize "${cf_name%.*}" | paste -sd '|')"
 
@@ -144,7 +144,8 @@ review_file() {
 
 		old_path="$(cat "$metadata_path" | grep_meta_val "Old file path")"
 		old_name="$(basename "$old_path")"
-		echo -e "Old	'$(echo "$old_name" | { grep -i --color=always -E "$cf_tokens" || echo "$old_name"; } )' (in '${old_path%/*}/')"
+		old_name_hl="$(echo "$old_name" | { grep -i --color=always -E "$cf_tokens" || echo "$old_name"; } )"
+		echo -e "Old	'$old_name_hl' (in '${old_path%/*}/')"
 
 		local missing_words
 		missing_words="$(tokenize "${old_name%.*}" | { grep -i -v -E "^($cf_tokens)+\$" || true; } | paste -sd ',')"

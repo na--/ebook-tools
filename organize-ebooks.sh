@@ -3,8 +3,8 @@
 set -euo pipefail
 
 DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
-# shellcheck source=./lib-org.sh
-. "$DIR/lib-org.sh"
+# shellcheck source=./lib.sh
+. "$DIR/lib.sh"
 
 DRY_RUN=false
 CORRUPTION_CHECK_ONLY=false
