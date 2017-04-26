@@ -28,24 +28,17 @@ print_help() {
 for i in "$@"; do
 	case $i in
 		-o=*|--output-folder=*) OUTPUT_FOLDERS+=("${i#*=}") ;;
-
 		-qm=*|--quick-mode=*) QUICK_MODE="${i#*=}" ;;
 		-mtl=*|--min-token-length=*) MIN_TOKEN_LENGTH="${i#*=}" ;;
 		-id=*|--ignored-differences=*) IGNORED_DIFFERENCES="${i#*=}" ;;
 		-cmbd=*|--custom-move-base-dir=*) CUSTOM_MOVE_BASE_DIR="${i#*=}" ;;
-
-		-oft=*|--output-filename-template=*) OUTPUT_FILENAME_TEMPLATE="${i#*=}" ;;
-		-ome=*|--output-metadata-extension=*) OUTPUT_METADATA_EXTENSION="${i#*=}" ;;
-
 		-h|--help) print_help; exit 1 ;;
-		-*) echo "Invalid option '$i'"; exit 4; ;;
+		-*|--*) handle_script_arg "$i" ;;
 		*) break ;;
 	esac
 	shift # past argument=value or argument with no value
 done
 if [[ "$#" == "0" ]]; then print_help; exit 2; fi
-
-
 
 
 tokenize() {
@@ -76,10 +69,9 @@ get_option() {
 		fi
 		decho "Move file to '${OUTPUT_FOLDERS[$i]}'"
 	done
-	decho -e " ${BOLD}m/tab${NC})	Move to another folder		| ${BOLD}r/bs${NC})	Reorganize file manually"
-	decho -e " ${BOLD}o/ent${NC})	Open file in external viewer	| ${BOLD}l${NC})	Read in terminal"
-	decho -e " ${BOLD}c${NC})	Read the saved metadata file	| ${BOLD}t/\`${NC})	Run shell in terminal"
-	decho -e " ${BOLD}e${NC})	Eval code (change env vars)	| ${BOLD}s${NC})	Skip file"
+	decho -e " ${BOLD}m/tab${NC})	Move to another folder		| ${BOLD}r/bs${NC})	Reorganize file manually	| ${BOLD}t/\`${NC})	Run shell in terminal"
+	decho -e " ${BOLD}o/ent${NC})	Open file in external viewer	| ${BOLD}l${NC})	Read in terminal		| ${BOLD}c${NC})	Read the saved metadata file	"
+	decho -e " ${BOLD}s${NC})	Skip file			| ${BOLD}e${NC})	Eval code (change env vars)	| ${BOLD}q${NC}) 	Quit"
 
 	IFS= read -r -s -n1 choice < /dev/tty
 	#decho "Character code: $(printf '%02d' "'$choice")" #'
@@ -202,6 +194,7 @@ review_file() {
 				fi
 		    ;;
 			"t") echo "Launching '$SHELL'..."; "$SHELL" < /dev/tty;;
+		    "q") exit 0 ;;
 		    "s") return ;;
 		    *) echo "Chosen option '$opt' is invalid, try again" ;;
 		esac
