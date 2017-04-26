@@ -104,7 +104,7 @@ organize_by_isbns() {
 		organize_by_filename_and_meta "$1" "Could not fetch metadata for ISBNs '$2'"
 	else
 		decho "Organization by filename and metadata is not turned on, giving up..."
-		skip_file "$1" "Could not fetch metadata for ISBNs '$2'; Non-ISBN organization not turned on"
+		skip_file "$1" "Could not fetch metadata for ISBNs '$2'; Non-ISBN organization disabled"
 	fi
 }
 
@@ -243,7 +243,7 @@ organize_file() {
 			decho "No ISBNs found for '$1', organizing by filename and metadata..."
 			organize_by_filename_and_meta "$1" "No ISBNs found"
 		else
-			skip_file "$1" "No ISBNs found; Non-ISBN organization not turned on"
+			skip_file "$1" "No ISBNs found; Non-ISBN organization disabled"
 		fi
 	fi
 	decho "====================================================="

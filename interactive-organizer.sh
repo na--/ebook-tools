@@ -75,14 +75,14 @@ get_option() {
 
 	IFS= read -r -s -n1 choice < /dev/tty
 	#decho "Character code: $(printf '%02d' "'$choice")" #'
-    case "$(printf '%02d' "'$choice")" in #'
-        "08"|"127") echo -n "r" ;;	# backspace
-        "09") echo -n "m" ;;	# horizontal tab
-        "32") echo -n "0" ;;	# space
-        "00") echo -n "o" ;;	# null (for newline)
-        "96") echo -n "t" ;;	# backtick
-        *) echo -n "$choice" ;;	# everything else'
-    esac
+	case "$(printf '%02d' "'$choice")" in #'
+		"08"|"127") echo -n "r" ;;	# backspace
+		"09") echo -n "m" ;;	# horizontal tab
+		"32") echo -n "0" ;;	# space
+		"00") echo -n "o" ;;	# null (for newline)
+		"96") echo -n "t" ;;	# backtick
+		*) echo -n "$choice" ;;	# everything else'
+	esac
 }
 
 open_in_external_viewer() {
@@ -158,15 +158,15 @@ review_file() {
 	while opt="$(get_option)"; do
 		echo "Chosen option: $opt"
 		case "$opt" in
-		    [0-9])
+			[0-9])
 				if (( opt < ${#OUTPUT_FOLDERS[@]} )); then
 					move_file_meta "${OUTPUT_FOLDERS[$opt]}" "$cf_path" "$metadata_path"
 					break
 				else
 					echo "Invalid output path $opt!"
 				fi
-		    ;;
-		    "m")
+			;;
+			"m")
 				local new_path=""
 				read -r -e -i "$CUSTOM_MOVE_BASE_DIR" -p "Move the file to: " new_path  < /dev/tty
 				if [[ "$new_path" != "" ]]; then
@@ -175,28 +175,28 @@ review_file() {
 				else
 					echo "No path entered, ignoring!"
 				fi
-		    ;;
-		    "r") reorganize_manually "$cf_path" && break ;;
-		    "o") open_in_external_viewer "$cf_path" ;;
-		    "l") open_with_less "$cf_path" ;;
-		    "c")
+			;;
+			"r") reorganize_manually "$cf_path" && break ;;
+			"o") open_in_external_viewer "$cf_path" ;;
+			"l") open_with_less "$cf_path" ;;
+			"c")
 				if [[ "$metadata_path" != "" ]]; then
 					cat "$metadata_path"
 				else
 					echo "There is no metadata file present!"
 				fi
-		    ;;
-		    "e")
+			;;
+			"e")
 				local evals=""
 				read -r -e -i "IGNORED_DIFFERENCES='$IGNORED_DIFFERENCES'" -p "Evaluate: " evals  < /dev/tty
 				if [[ "$evals" != "" ]]; then
 					eval "$evals"
 				fi
-		    ;;
+			;;
 			"t") echo "Launching '$SHELL'..."; "$SHELL" < /dev/tty;;
-		    "q") exit 0 ;;
-		    "s") return ;;
-		    *) echo "Chosen option '$opt' is invalid, try again" ;;
+			"q") exit 0 ;;
+			"s") return ;;
+			*) echo "Chosen option '$opt' is invalid, try again" ;;
 		esac
 	done
 

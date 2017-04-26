@@ -59,6 +59,8 @@ WITHOUT_ISBN_IGNORE="$(echo '
 OUTPUT_FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]+ (${d[PUBLISHED]%%-*})}${d[ISBN]+ [${d[ISBN]}]}.${d[EXT]}"'
 OUTPUT_METADATA_EXTENSION="meta"
 
+
+# Handle parsing from arguments and setting all the common config vars
 #shellcheck disable=SC2034
 handle_script_arg() {
 	case "$1" in
@@ -110,14 +112,14 @@ decho () {
 #		the prefix so it fits; 0 is disabled
 #	[...]: everything else is passed to the fmt command
 debug_prefixer() {
-	local prefix
-	prefix="$1"
-	if [[ "$#" -gt 1 ]]; then
-		if [[ "$2" -gt 0 ]]; then
-			if (( ${#1} > $2 )); then
-				prefix="${1:0:10}..${1:(-$(($2-12)))}"
+	local prefix="$1"
+	if (( $# > 1 )); then
+		local should_fit_in="$2"
+		if (( should_fit_in > 0 )); then
+			if (( ${#prefix} > should_fit_in )); then
+				prefix="${prefix:0:10}..${prefix:(-$((should_fit_in - 12)))}"
 			else
-				prefix="$(printf "%-${2}s" "$1")"
+				prefix="$(printf "%-${should_fit_in}s" "$prefix")"
 			fi
 		fi
 		shift
@@ -133,9 +135,8 @@ debug_prefixer() {
 
 # Validates ISBN-10 and ISBN-13 numbers
 is_isbn_valid() {
-	local isbn
+	local isbn sum=0
 	isbn="$(echo "$1" | tr -d ' -' | tr '[:lower:]' '[:upper:]')"
-	local sum=0
 
 	if [ "${#isbn}" == "10" ]; then
 		local number
@@ -165,6 +166,7 @@ is_isbn_valid() {
 	return 1
 }
 
+
 # Reads and echoes only n lines from STDIN, without consuming the rest
 cat_n() {
 	local lines=0
@@ -172,6 +174,7 @@ cat_n() {
 		echo "$line"
 	done
 }
+
 
 # If ISBN_GREP_REORDER_FILES is enabled, reorders the specified file according
 # to the values of ISBN_GREP_RF_SCAN_FIRST and ISBN_GREP_RF_REVERSE_LAST
@@ -205,6 +208,7 @@ command_exists() {
 	command -v "$1" >/dev/null 2>&1
 }
 
+
 # Return "$1/$2" if no file exists at this path. Otherwrise, sequentially
 # insert " ($n)" before the extension of $2 and return the first path for
 # which no file is present.
@@ -221,6 +225,7 @@ unique_filename() {
 
 	echo "$new_path"
 }
+
 
 # Returns a single value by key by parsing the calibre-style text metadata
 # hashmap that is passed to stdin
@@ -297,6 +302,12 @@ convert_to_txt() {
 }
 
 
+# Arguments: the path to the archive file
+get_all_isbns_from_archive() {
+	echo "TODO"
+}
+
+
 # Tries to find ISBN numbers in the given ebook file by using progressively
 # more "expensive" tactics. If at some point ISBN numbers are found, they
 # are echoed to stdout and the function returns.
@@ -310,10 +321,10 @@ convert_to_txt() {
 #     recursively call search_file_for_isbns for all the extracted files
 #   - Try to convert the file to a .txt via convert_to_txt()
 search_file_for_isbns() {
-	decho "Searching file '$1' for ISBN numbers..."
-	local isbns
+	local isbns file_path="$1"
+	decho "Searching file '$file_path' for ISBN numbers..."
 
-	isbns="$(echo "$1" | find_isbns)"
+	isbns="$(echo "$file_path" | find_isbns)"
 	if [[ "$isbns" != "" ]]; then
 		decho "Extracted ISBNs '$isbns' from file path!"
 		echo -n "$isbns"
@@ -321,11 +332,11 @@ search_file_for_isbns() {
 	fi
 
 	local mimetype
-	mimetype="$(file --brief --mime-type "$1")"
+	mimetype="$(file --brief --mime-type "$file_path")"
 	decho "Ebook MIME type: $mimetype"
 	if [[ "$mimetype" =~ $ISBN_DIRECT_GREP_FILES ]]; then
 		decho "Ebook is in text format, trying to find ISBN directly"
-		isbns="$(cat_file_for_isbn_grep "$1" | find_isbns)"
+		isbns="$(cat_file_for_isbn_grep "$file_path" | find_isbns)"
 		if [[ "$isbns" != "" ]]; then
 			decho "Extracted ISBNs '$isbns' from the text file contents!"
 			echo -n "$isbns"
@@ -340,7 +351,7 @@ search_file_for_isbns() {
 
 
 	local ebookmeta
-	ebookmeta="$(ebook-meta "$1")"
+	ebookmeta="$(ebook-meta "$file_path")"
 	decho "Ebook metadata:"
 	echo "$ebookmeta" | debug_prefixer "	" 0 --width=80 -t
 	isbns="$(echo "$ebookmeta" | find_isbns)"
@@ -355,7 +366,7 @@ search_file_for_isbns() {
 	local tmpdir
 	tmpdir="$(mktemp -d)"
 	decho "Created a temporary folder '$tmpdir'"
-	if 7z x -o"$tmpdir" "$1" 2>&1 | debug_prefixer "[7zx] " 0 --width=80 -s; then
+	if 7z x -o"$tmpdir" "$file_path" 2>&1 | debug_prefixer "[7zx] " 0 --width=80 -s; then
 		decho "Archive extracted successfully in $tmpdir, scanning contents recursively..."
 		while IFS= read -r -d '' file_to_check; do
 			#decho "Searching '$file_to_check' for ISBNs..."
@@ -378,7 +389,7 @@ search_file_for_isbns() {
 	local tmptxtfile
 	tmptxtfile="$(mktemp --suffix='.txt')"
 	decho "Converting ebook to text format in file '$tmptxtfile'..."
-	if convert_to_txt "$1" "$tmptxtfile" "$mimetype" 2>&1 | debug_prefixer "[ebook2txt] " 0 --width=80 -s; then
+	if convert_to_txt "$file_path" "$tmptxtfile" "$mimetype" 2>&1 | debug_prefixer "[ebook2txt] " 0 --width=80 -s; then
 		decho "Conversion is done, trying to find ISBNs in the text output..."
 		isbns="$(cat_file_for_isbn_grep "$tmptxtfile" | find_isbns)"
 		if [[ "$isbns" != "" ]]; then
@@ -396,7 +407,7 @@ search_file_for_isbns() {
 	decho "Removing '$tmptxtfile'..."
 	rm "$tmptxtfile"
 
-	decho "Could not find any ISBNs in '$1' :("
+	decho "Could not find any ISBNs in '$file_path' :("
 }
 
 
