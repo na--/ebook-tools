@@ -15,7 +15,7 @@ NC='\033[0m' #shellcheck disable=SC2034
 ISBN_REGEX='(?<![0-9])(977|978|979)?+(([ –—-]?[0-9][ –—-]?){9}[0-9xX])(?![0-9-])'
 
 ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
-ISBN_IGNORED_FILES='^image/(png|jpeg|gif)|application/x-shockwave-flash$'
+ISBN_IGNORED_FILES='^image/(png|jpeg|gif)|application/(x-shockwave-flash|CDFV2)$'
 ISBN_RET_SEPARATOR=","
 
 # These options specify if and how we should reoder ISBN_DIRECT_GREP files
@@ -288,7 +288,7 @@ search_file_for_isbns() {
 		fi
 		return
 	elif [[ "$mimetype" =~ $ISBN_IGNORED_FILES ]]; then
-		decho "The file is an image, ignoring..."
+		decho "The file type in the blacklist, ignoring..."
 		return
 	fi
 
