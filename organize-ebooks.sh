@@ -139,29 +139,29 @@ organize_by_filename_and_meta() {
 	author="$(echo "$ebookmeta" | grep_meta_val "Author" | sed -e 's/ & .*//' | tokenize ' ' true 1)"
 	decho "Extracted title '$title' and author '$author'"
 
+	finisher() {
+		local fetch_method="$1"
+		decho "Successfully fetched metadata: "
+		debug_prefixer "[meta-$fetch_method] " 0 --width=100 -t < "$tmpmfile"
+		decho "Addding additional metadata to the end of the metadata file..."
+		{
+			echo "Old file path       : $old_path" >> "$tmpmfile"
+			echo "Meta fetch method   : $fetch_method" >> "$tmpmfile"
+			echo "$ebookmeta" | sed -E 's/^(.+[^ ])   ([ ]+): /OF \1\2: /'
+		} >> "$tmpmfile"
+
+		local isbn
+		isbn="$(find_isbns < "$tmpmfile")"
+		if [[ "$isbn" != "" ]]; then
+			echo "ISBN                : $isbn" >> "$tmpmfile"
+		fi
+
+		decho "Organizing '$old_path' (with '$tmpmfile')..."
+		move_or_link_ebook_file_and_metadata "$OUTPUT_FOLDER_UNSURE" "$old_path" "$tmpmfile"
+	}
+
 	if [[ "${title//[^[:alpha:]]/}" != "" && "$title" != "Unknown" ]]; then
 		decho "There is a relatively normal-looking title, searching for metadata..."
-
-		finisher() {
-			local fetch_method="$1"
-			decho "Successfully fetched metadata: "
-			debug_prefixer "[meta-$fetch_method] " 0 --width=100 -t < "$tmpmfile"
-			decho "Addding additional metadata to the end of the metadata file..."
-			{
-				echo "Old file path       : $old_path" >> "$tmpmfile"
-				echo "Meta fetch method   : $fetch_method" >> "$tmpmfile"
-				echo "$ebookmeta" | sed -E 's/^(.+[^ ])   ([ ]+): /OF \1\2: /'
-			} >> "$tmpmfile"
-
-			local isbn
-			isbn="$(find_isbns < "$tmpmfile")"
-			if [[ "$isbn" != "" ]]; then
-				echo "ISBN                : $isbn" >> "$tmpmfile"
-			fi
-
-			decho "Organizing '$old_path' (with '$tmpmfile')..."
-			move_or_link_ebook_file_and_metadata "$OUTPUT_FOLDER_UNSURE" "$old_path" "$tmpmfile"
-		}
 
 		if [[ "${author//[[:space:]]/}" != "" && "$author" != "Unknown" ]]; then
 			decho "Trying to fetch metadata by title '$title' and author '$author'..."
@@ -185,7 +185,6 @@ organize_by_filename_and_meta() {
 
 	local filename
 	filename="$(basename "${old_path%.*}" | tokenize)"
-
 	decho "Trying to fetch metadata only the filename '$filename'..."
 	if fetch_metadata "fetch-meta-filename" "$ORGANIZE_WITHOUT_ISBN_SOURCES" --title="$filename" > "$tmpmfile"; then
 		finisher "filename"
