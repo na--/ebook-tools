@@ -6,14 +6,8 @@ DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 # shellcheck source=./lib.sh
 . "$DIR/lib.sh"
 
-DRY_RUN=false
 CORRUPTION_CHECK_ONLY=false
-SYMLINK_ONLY=false
-DELETE_METADATA=false
-
-ORGANIZE_ISBN_META_FETCH_ORDER="Goodreads,Amazon.com,Google,ISBNDB,WorldCat xISBN,OZON.ru" # Requires Calibre 2.84+
 ORGANIZE_WITHOUT_ISBN=false
-ORGANIZE_WITHOUT_ISBN_IGNORED="$NO_ISBN_IGNORE_REGEX" # Periodicals and images
 ORGANIZE_WITHOUT_ISBN_SOURCES="Goodreads,Amazon.com,Google" # Requires Calibre 2.84+, previous versions will search in all enabled sources in the GUI
 
 OUTPUT_FOLDER="$(pwd)"
@@ -21,9 +15,7 @@ OUTPUT_FOLDER_SEPARATE_UNSURE=false
 OUTPUT_FOLDER_UNSURE="$(pwd)"
 OUTPUT_FOLDER_CORRUPT=
 
-VERBOSE=false
 DEBUG_PREFIX_LENGTH=40
-
 
 print_help() {
 	echo "eBook Organizer v$VERSION"
@@ -34,19 +26,10 @@ print_help() {
 }
 
 for i in "$@"; do
-	case $i in
-		-d|--dry-run) DRY_RUN=true ;;
-		-sl|--symlink-only) SYMLINK_ONLY=true ;;
+	case "$i" in
 		-cco|--corruption-check-only) CORRUPTION_CHECK_ONLY=true ;;
-		-dm|--delete-metadata) DELETE_METADATA=true ;;
-
-		-mfo=*|--metadata-fetch-order=*) ORGANIZE_ISBN_META_FETCH_ORDER="${i#*=}" ;;
 		-owi|--organize--without--isbn) ORGANIZE_WITHOUT_ISBN=true ;;
-		-owii=*|--organize--without--isbn-ignored=*) ORGANIZE_WITHOUT_ISBN_IGNORED="${i#*=}" ;;
 		-owis=*|--organize--without--isbn-sources=*) ORGANIZE_WITHOUT_ISBN_SOURCES="${i#*=}" ;;
-
-		-oft=*|--output-filename-template=*) OUTPUT_FILENAME_TEMPLATE="${i#*=}" ;;
-		-ome=*|--output-metadata-extension=*) OUTPUT_METADATA_EXTENSION="${i#*=}" ;;
 		-o=*|--output-folder=*)
 			OUTPUT_FOLDER="${i#*=}"
 			if [[ "$OUTPUT_FOLDER_SEPARATE_UNSURE" == false ]]; then
@@ -58,27 +41,9 @@ for i in "$@"; do
 			OUTPUT_FOLDER_UNSURE="${i#*=}"
 		;;
 		-oc=*|--output-folder-corrupt=*) OUTPUT_FOLDER_CORRUPT="${i#*=}" ;;
-
-		-v|--verbose) VERBOSE=true ;;
 		--debug-prefix-length=*) DEBUG_PREFIX_LENGTH="${i#*=}" ;;
-
-		-i=*|--isbn-regex=*) ISBN_REGEX="${i#*=}" ;;
-		--isbn-direct-grep-files=*) ISBN_DIRECT_GREP_FILES="${i#*=}" ;;
-		--isbn-extraction-ignore=*) ISBN_IGNORED_FILES="${i#*=}" ;;
-		--tested-archive-extensions=*) TESTED_ARCHIVE_EXTENSIONS="${i#*=}" ;;
-		--reorder-files-for-grep=*)
-			i="${i#*=}"
-			if [[ "$i" == "false" ]]; then
-				ISBN_GREP_REORDER_FILES=false
-			else
-				ISBN_GREP_REORDER_FILES=true
-				ISBN_GREP_RF_SCAN_FIRST="${i%,*}"
-				ISBN_GREP_RF_REVERSE_LAST="${i##*,}"
-			fi
-		;;
-
 		-h|--help) print_help; exit 1 ;;
-		-*) echo "Invalid option '$i'"; exit 4; ;;
+		-*|--*) handle_script_arg "$i" ;;
 		*) break ;;
 	esac
 	shift # past argument=value or argument with no value
@@ -94,77 +59,13 @@ skip_file() {
 	echo -e "SKIP:\t$1\nREASON:\t$2\n"
 }
 
-# Arguments: new_folder, current_ebook_path, current_metadata_path
-move_or_link_ebook_file_and_metadata() {
-	local new_folder="$1" current_ebook_path="$2" current_metadata_path="$3"
-	declare -A d=( ["EXT"]="${current_ebook_path##*.}" ) # metadata and the file extension
-
-	while IFS='' read -r line || [[ -n "$line" ]]; do
-		d["$(echo "${line%%:*}" | sed -e 's/[ \t]*$//' -e 's/ /_/g' -e 's/[^a-zA-Z0-9_]//g' -e 's/\(.*\)/\U\1/')"]="$(echo "${line#*: }" | sed -e 's/[\\/\*\?<>\|\x01-\x1F\x7F\x22\x24\x60]/_/g' | cut -c 1-110 )"
-	done < "$current_metadata_path"
-
-	decho "Variables that will be used for the new filename construction:"
-	local key
-	for key in "${!d[@]}"; do
-		echo "${d[${key}]}" | debug_prefixer "    ${key}" 25
-	done
-
-	local new_name
-	new_name="$(eval echo "$OUTPUT_FILENAME_TEMPLATE")"
-	decho "The new file name of the book file/link '$current_ebook_path' will be: '$new_name'"
-
-	local new_path
-	new_path="$(unique_filename "${new_folder%/}" "$new_name")"
-	echo -e "${GREEN}OK${NC}:\t${current_ebook_path}\nTO:\t${new_path}\n"
-
-	$DRY_RUN && decho "(DRY RUN! All operations except metadata deletion are skipped!)"
-	if [[ "$SYMLINK_ONLY" == true ]]; then
-		decho "Symlinking file '$current_ebook_path' to '$new_path'..."
-		$DRY_RUN || ln -s "$(realpath "$current_ebook_path")" "$new_path"
-	else
-		decho "Moving file '$current_ebook_path' to '$new_path'..."
-		$DRY_RUN || mv --no-clobber "$current_ebook_path" "$new_path"
-	fi
-
-	if [[ "$DELETE_METADATA" == true ]]; then
-		decho "Removing metadata file '$current_metadata_path'..."
-		rm "$current_metadata_path"
-	else
-		decho "Moving metadata file '$current_metadata_path' to '${new_path}.${OUTPUT_METADATA_EXTENSION}'..."
-		if [[ "$DRY_RUN" != true ]]; then
-			mv --no-clobber "$current_metadata_path" "${new_path}.${OUTPUT_METADATA_EXTENSION}"
-		else
-			rm "$current_metadata_path"
-		fi
-	fi
-}
-
-
-
-
-# Uses Calibre's fetch-ebook-metadata CLI tool to download metadata from
-# online sources. The first parameter is the debug prefix, the second is the
-# coma-separated list of allowed plugins and the rest are passed directly
-# to fetch-ebook-metadata
-fetch_metadata() {
-	local isbn_sources
-	IFS=, read -ra isbn_sources <<< "$2"
-
-	local isbn_source="" args=()
-	for isbn_source in "${isbn_sources[@]:-}"; do
-		args+=("${isbn_source:+--allowed-plugin=$isbn_source}")
-	done
-
-	decho "Calling fetch-ebook-metadata --verbose" "${args[*]}" "${@:3}"
-	fetch-ebook-metadata --verbose "${args[@]}" "${@:3}" 2> >(debug_prefixer "[$1] " 0 --width=100 -s) | grep -E '[a-zA-Z()]+ +: .*'
-}
 
 # Sequentially tries to fetch metadata for each of the supplied ISBNs; if any
 # is found, writes it to a tmp .txt file and calls organize_known_ebook()
 # Arguments: path, isbn (coma-separated)
 organize_by_isbns() {
 	local isbn_sources
-	IFS=, read -ra isbn_sources <<< "$ORGANIZE_ISBN_META_FETCH_ORDER"
+	IFS=, read -ra isbn_sources <<< "$ISBN_METADATA_FETCH_ORDER"
 
 	local isbn
 	for isbn in $(echo "$2" | tr "$ISBN_RET_SEPARATOR" '\n'); do
@@ -216,7 +117,7 @@ organize_by_filename_and_meta() {
 
 	local lowercase_name
 	lowercase_name="$(basename "$old_path" | sed -E 's/[[:upper:]]+/\L&/g')"
-	if [[ "$lowercase_name" =~ $ORGANIZE_WITHOUT_ISBN_IGNORED ]]; then
+	if [[ "$lowercase_name" =~ $WITHOUT_ISBN_IGNORE ]]; then
 		local matches
 		matches="[$(echo "$lowercase_name" | grep -oE "$NO_ISBN_IGNORE_REGEX" | paste -sd';')]"
 		decho "Parts of the filename match the ignore regex: [$matches]"

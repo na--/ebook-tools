@@ -9,11 +9,17 @@ RED='\033[0;31m' #shellcheck disable=SC2034
 BOLD='\033[1m' #shellcheck disable=SC2034
 NC='\033[0m' #shellcheck disable=SC2034
 
+VERBOSE=false
+DRY_RUN=false
+SYMLINK_ONLY=false
+DELETE_METADATA=false
+
+TESTED_ARCHIVE_EXTENSIONS='^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr)$'
+
 # This regular expression should match most ISBN10/13-like sequences in
 # texts. To minimize false-positives, matches should be passed through
 # is_isbn_valid() or another ISBN validator
 ISBN_REGEX='(?<![0-9])(977|978|979)?+(([ –—-]?[0-9][ –—-]?){9}[0-9xX])(?![0-9-])'
-
 ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
 ISBN_IGNORED_FILES='^image/(png|jpeg|gif)|application/(x-shockwave-flash|CDFV2)$'
 ISBN_RET_SEPARATOR=","
@@ -28,11 +34,12 @@ ISBN_GREP_REORDER_FILES=true
 ISBN_GREP_RF_SCAN_FIRST=400
 ISBN_GREP_RF_REVERSE_LAST=50
 
-TESTED_ARCHIVE_EXTENSIONS='^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr)$'
+ISBN_METADATA_FETCH_ORDER="Goodreads,Amazon.com,Google,ISBNDB,WorldCat xISBN,OZON.ru" # Requires Calibre 2.84+
 
-# Should be matched against a lowercase filename.ext, lines that start with # and newlines are removed
-#shellcheck disable=SC2034
-NO_ISBN_IGNORE_REGEX="$(echo '
+# Should be matched against a lowercase filename.ext, lines that start with #
+# and newlines are removed. The default value should filter out most
+# periodicals and images
+WITHOUT_ISBN_IGNORE="$(echo '
 # Images:
 \.(png|jpg|jpeg|gif)$
 # Perdiodicals with filenames that contain something like 2010-11, 199010, 2015_7, 20110203:
@@ -47,9 +54,43 @@ NO_ISBN_IGNORE_REGEX="$(echo '
 # TODO: include words like monthly, vol(ume)?
 ' | grep -v '^#' | tr -d '\n')"
 
+
 #shellcheck disable=SC2016
 OUTPUT_FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]+ (${d[PUBLISHED]%%-*})}${d[ISBN]+ [${d[ISBN]}]}.${d[EXT]}"'
 OUTPUT_METADATA_EXTENSION="meta"
+
+#shellcheck disable=SC2034
+handle_script_arg() {
+	case "$1" in
+		-v|--verbose) VERBOSE=true ;;
+		-d|--dry-run) DRY_RUN=true ;;
+		-sl|--symlink-only) SYMLINK_ONLY=true ;;
+		-dm|--delete-metadata) DELETE_METADATA=true ;;
+
+		--tested-archive-extensions=*) TESTED_ARCHIVE_EXTENSIONS="${1#*=}" ;;
+		-i=*|--isbn-regex=*) ISBN_REGEX="${1#*=}" ;;
+		--isbn-direct-grep-files=*) ISBN_DIRECT_GREP_FILES="${1#*=}" ;;
+		--isbn-extraction-ignore=*) ISBN_IGNORED_FILES="${1#*=}" ;;
+		--reorder-files-for-grep=*)
+			i="${1#*=}"
+			if [[ "$1" == "false" ]]; then
+				ISBN_GREP_REORDER_FILES=false
+			else
+				ISBN_GREP_REORDER_FILES=true
+				ISBN_GREP_RF_SCAN_FIRST="${1%,*}"
+				ISBN_GREP_RF_REVERSE_LAST="${1##*,}"
+			fi
+		;;
+
+		-mfo=*|--metadata-fetch-order=*) ISBN_METADATA_FETCH_ORDER="${1#*=}" ;;
+		-wii=*|--without-isbn-ignore=*) WITHOUT_ISBN_IGNORE="${1#*=}" ;;
+
+		-oft=*|--output-filename-template=*) OUTPUT_FILENAME_TEMPLATE="${1#*=}" ;;
+		-ome=*|--output-metadata-extension=*) OUTPUT_METADATA_EXTENSION="${1#*=}" ;;
+
+		-*) echo "Invalid option '$1'"; exit 4; ;;
+	esac
+}
 
 
 # If the VERBOSE flag is on, outputs the arguments to stderr
@@ -358,4 +399,67 @@ search_file_for_isbns() {
 	decho "Could not find any ISBNs in '$1' :("
 }
 
+
+# Arguments: new_folder, current_ebook_path, current_metadata_path
+move_or_link_ebook_file_and_metadata() {
+	local new_folder="$1" current_ebook_path="$2" current_metadata_path="$3" line
+	declare -A d=( ["EXT"]="${current_ebook_path##*.}" ) # metadata and the file extension
+
+	while IFS='' read -r line || [[ -n "$line" ]]; do
+		d["$(echo "${line%%:*}" | sed -e 's/[ \t]*$//' -e 's/ /_/g' -e 's/[^a-zA-Z0-9_]//g' -e 's/\(.*\)/\U\1/')"]="$(echo "${line#*: }" | sed -e 's/[\\/\*\?<>\|\x01-\x1F\x7F\x22\x24\x60]/_/g' | cut -c 1-110 )"
+	done < "$current_metadata_path"
+
+	decho "Variables that will be used for the new filename construction:"
+	local key
+	for key in "${!d[@]}"; do
+		echo "${d[${key}]}" | debug_prefixer "    ${key}" 25
+	done
+
+	local new_name
+	new_name="$(eval echo "$OUTPUT_FILENAME_TEMPLATE")"
+	decho "The new file name of the book file/link '$current_ebook_path' will be: '$new_name'"
+
+	local new_path
+	new_path="$(unique_filename "${new_folder%/}" "$new_name")"
+	echo -e "${GREEN}OK${NC}:\t${current_ebook_path}\nTO:\t${new_path}\n"
+
+	$DRY_RUN && decho "(DRY RUN! All operations except metadata deletion are skipped!)"
+	if [[ "$SYMLINK_ONLY" == true ]]; then
+		decho "Symlinking file '$current_ebook_path' to '$new_path'..."
+		$DRY_RUN || ln -s "$(realpath "$current_ebook_path")" "$new_path"
+	else
+		decho "Moving file '$current_ebook_path' to '$new_path'..."
+		$DRY_RUN || mv --no-clobber "$current_ebook_path" "$new_path"
+	fi
+
+	if [[ "$DELETE_METADATA" == true ]]; then
+		decho "Removing metadata file '$current_metadata_path'..."
+		rm "$current_metadata_path"
+	else
+		decho "Moving metadata file '$current_metadata_path' to '${new_path}.${OUTPUT_METADATA_EXTENSION}'..."
+		if [[ "$DRY_RUN" != true ]]; then
+			mv --no-clobber "$current_metadata_path" "${new_path}.${OUTPUT_METADATA_EXTENSION}"
+		else
+			rm "$current_metadata_path"
+		fi
+	fi
+}
+
+
+# Uses Calibre's fetch-ebook-metadata CLI tool to download metadata from
+# online sources. The first parameter is the debug prefix, the second is the
+# coma-separated list of allowed plugins and the rest are passed directly
+# to fetch-ebook-metadata
+fetch_metadata() {
+	local isbn_sources
+	IFS=, read -ra isbn_sources <<< "$2"
+
+	local isbn_source="" args=()
+	for isbn_source in "${isbn_sources[@]:-}"; do
+		args+=("${isbn_source:+--allowed-plugin=$isbn_source}")
+	done
+
+	decho "Calling fetch-ebook-metadata --verbose" "${args[*]}" "${@:3}"
+	fetch-ebook-metadata --verbose "${args[@]}" "${@:3}" 2> >(debug_prefixer "[$1] " 0 --width=100 -s) | grep -E '[a-zA-Z()]+ +: .*'
+}
 
