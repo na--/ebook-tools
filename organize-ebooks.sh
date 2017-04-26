@@ -94,18 +94,14 @@ skip_file() {
 	echo -e "SKIP:\t$1\nREASON:\t$2\n"
 }
 
-# Arguments:
-#	is_sure: whether we are relatively sure of the book metadata accuracy
-# 	current_path: the path to book file
-#	metadata_path: the path to the metadata file
+# Arguments: new_folder, current_ebook_path, current_metadata_path
 move_or_link_ebook_file_and_metadata() {
-	local current_path
-	current_path="$2"
-	declare -A d=( ["EXT"]="${current_path##*.}" ) # metadata and the file extension
+	local new_folder="$1" current_ebook_path="$2" current_metadata_path="$3"
+	declare -A d=( ["EXT"]="${current_ebook_path##*.}" ) # metadata and the file extension
 
 	while IFS='' read -r line || [[ -n "$line" ]]; do
 		d["$(echo "${line%%:*}" | sed -e 's/[ \t]*$//' -e 's/ /_/g' -e 's/[^a-zA-Z0-9_]//g' -e 's/\(.*\)/\U\1/')"]="$(echo "${line#*: }" | sed -e 's/[\\/\*\?<>\|\x01-\x1F\x7F\x22\x24\x60]/_/g' | cut -c 1-110 )"
-	done < "$3"
+	done < "$current_metadata_path"
 
 	decho "Variables that will be used for the new filename construction:"
 	local key
@@ -115,37 +111,30 @@ move_or_link_ebook_file_and_metadata() {
 
 	local new_name
 	new_name="$(eval echo "$OUTPUT_FILENAME_TEMPLATE")"
-	decho "The new file name of the book file/link '$current_path' will be: '$new_name'"
-
-	local new_folder
-	if [[ "$1" == true ]]; then
-		new_folder="${OUTPUT_FOLDER%/}"
-	else
-		new_folder="${OUTPUT_FOLDER_UNSURE%/}"
-	fi
+	decho "The new file name of the book file/link '$current_ebook_path' will be: '$new_name'"
 
 	local new_path
-	new_path="$(unique_filename "$new_folder" "$new_name")"
-	echo -e "${GREEN}OK${NC}:\t${current_path}\nTO:\t${new_path}\n"
+	new_path="$(unique_filename "${new_folder%/}" "$new_name")"
+	echo -e "${GREEN}OK${NC}:\t${current_ebook_path}\nTO:\t${new_path}\n"
 
 	$DRY_RUN && decho "(DRY RUN! All operations except metadata deletion are skipped!)"
 	if [[ "$SYMLINK_ONLY" == true ]]; then
-		decho "Symlinking file '$current_path' to '$new_path'..."
-		$DRY_RUN || ln -s "$(realpath "$current_path")" "$new_path"
+		decho "Symlinking file '$current_ebook_path' to '$new_path'..."
+		$DRY_RUN || ln -s "$(realpath "$current_ebook_path")" "$new_path"
 	else
-		decho "Moving file '$current_path' to '$new_path'..."
-		$DRY_RUN || mv --no-clobber "$current_path" "$new_path"
+		decho "Moving file '$current_ebook_path' to '$new_path'..."
+		$DRY_RUN || mv --no-clobber "$current_ebook_path" "$new_path"
 	fi
 
 	if [[ "$DELETE_METADATA" == true ]]; then
-		decho "Removing metadata file '$3'..."
-		rm "$3"
+		decho "Removing metadata file '$current_metadata_path'..."
+		rm "$current_metadata_path"
 	else
-		decho "Moving metadata file '$3' to '${new_path}.${OUTPUT_METADATA_EXTENSION}'..."
+		decho "Moving metadata file '$current_metadata_path' to '${new_path}.${OUTPUT_METADATA_EXTENSION}'..."
 		if [[ "$DRY_RUN" != true ]]; then
-			mv --no-clobber "$3" "${new_path}.${OUTPUT_METADATA_EXTENSION}"
+			mv --no-clobber "$current_metadata_path" "${new_path}.${OUTPUT_METADATA_EXTENSION}"
 		else
-			rm "$3"
+			rm "$current_metadata_path"
 		fi
 	fi
 }
@@ -200,7 +189,7 @@ organize_by_isbns() {
 				} >> "$tmpmfile"
 
 				decho "Organizing '$1' (with '$tmpmfile')..."
-				move_or_link_ebook_file_and_metadata true "$1" "$tmpmfile"
+				move_or_link_ebook_file_and_metadata "$OUTPUT_FOLDER" "$1" "$tmpmfile"
 				return
 			fi
 		done
@@ -271,7 +260,7 @@ organize_by_filename_and_meta() {
 			fi
 
 			decho "Organizing '$old_path' (with '$tmpmfile')..."
-			move_or_link_ebook_file_and_metadata false "$old_path" "$tmpmfile"
+			move_or_link_ebook_file_and_metadata "$OUTPUT_FOLDER_UNSURE" "$old_path" "$tmpmfile"
 		}
 
 		if [[ "${author//[[:space:]]/}" != "" && "$author" != "Unknown" ]]; then
