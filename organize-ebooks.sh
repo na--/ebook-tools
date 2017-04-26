@@ -118,7 +118,7 @@ organize_by_filename_and_meta() {
 	lowercase_name="$(basename "$old_path" | to_lower)"
 	if [[ "$lowercase_name" =~ $WITHOUT_ISBN_IGNORE ]]; then
 		local matches
-		matches="[$(echo "$lowercase_name" | grep -oE "$NO_ISBN_IGNORE_REGEX" | paste -sd';')]"
+		matches="[$(echo "$lowercase_name" | grep -oE "$WITHOUT_ISBN_IGNORE" | paste -sd';')]"
 		decho "Parts of the filename match the ignore regex: [$matches]"
 		skip_file "$old_path" "${prev_reason}File matches the ignore regex ($matches)"
 		return
