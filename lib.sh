@@ -21,7 +21,7 @@ TESTED_ARCHIVE_EXTENSIONS='^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|
 # is_isbn_valid() or another ISBN validator
 ISBN_REGEX='(?<![0-9])(977|978|979)?+(([ –—-]?[0-9][ –—-]?){9}[0-9xX])(?![0-9-])'
 ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
-ISBN_IGNORED_FILES='^image/(png|jpeg|gif)|application/(x-shockwave-flash|CDFV2)$'
+ISBN_IGNORED_FILES='^image/(png|jpeg|gif)|application/(x-shockwave-flash|CDFV2|vnd.ms-opentype|x-font-ttf)$'
 ISBN_RET_SEPARATOR=","
 
 # These options specify if and how we should reoder ISBN_DIRECT_GREP files
@@ -142,6 +142,11 @@ to_lower() {
 	sed -E 's/[[:upper:]]+/\L&/g'
 }
 
+# Prints only the first instance of any line
+uniq_no_sort() {
+	awk '!x[$0]++'
+}
+
 
 # Validates ISBN-10 and ISBN-13 numbers
 is_isbn_valid() {
@@ -201,15 +206,16 @@ cat_file_for_isbn_grep() {
 
 # Searches STDIN for ISBN-like sequences and removes duplicates (preserving
 # the order) and finally validates them using is_isbn_valid() and returns
-# them coma-separated
+# them separated by $ISBN_RET_SEPARATOR
 find_isbns() {
-	{ grep -oP "$ISBN_REGEX" || true; } | tr -c -d '0-9xX\n' | awk '!x[$0]++' | (
+	local isbn
+	{ grep -oP "$ISBN_REGEX" || true; } | tr -c -d '0-9xX\n' | uniq_no_sort | (
 		while IFS='' read -r isbn || [[ -n "$isbn" ]]; do
 			if is_isbn_valid "$isbn"; then
 				echo "$isbn"
 			fi
 		done
-	) | paste -sd "$ISBN_RET_SEPARATOR" -
+	) | paste -sd "$ISBN_RET_SEPARATOR"
 }
 
 
@@ -248,7 +254,7 @@ tokenize() {
 	local separator="${1:- }" dedup="${2:-true}" lenr="${3:-$TOKEN_MIN_LENGTH}"
 	grep -oE "[[:alpha:]]{${lenr},}|[[:digit:]]{${lenr},}" | to_lower | {
 		if [[ "$dedup" == true ]]; then
-			awk '!x[$0]++'
+			uniq_no_sort
 		else
 			cat
 		fi
@@ -325,7 +331,28 @@ convert_to_txt() {
 
 # Arguments: the path to the archive file
 get_all_isbns_from_archive() {
-	echo "TODO"
+	local file_path="$1" isbns tmpdir
+	tmpdir="$(mktemp -d)"
+
+	decho "Trying to decompress '$file_path' into tmp folder '$tmpdir' and recursively scan the contents"
+	if 7z x -o"$tmpdir" "$file_path" 2>&1 | debug_prefixer "[7zx] " 0 --width=80 -s; then
+		decho "Archive extracted successfully in '$tmpdir', scanning contents recursively..."
+		while IFS= read -r -d '' file_to_check; do
+			#decho "Searching '$file_to_check' for ISBNs..."
+			isbns="$(search_file_for_isbns "$file_to_check" 2> >(debug_prefixer "[${file_to_check#$tmpdir}] " "${DEBUG_PREFIX_LENGTH:-40}") )"
+			if [[ "$isbns" != "" ]]; then
+				decho "Found ISBNs $isbns!"
+				echo "$isbns" | tr "$ISBN_RET_SEPARATOR" '\n'
+			fi
+			decho "Removing '$file_to_check'..."
+			rm "$file_to_check"
+		done < <(find "$tmpdir" -type f  -print0 | sort -z)
+	else
+		decho "Error extracting the file (probably not an archive)"
+	fi
+
+	decho "Removing temporary folder '$tmpdir' (should be empty)..."
+	find "$tmpdir" -type d -empty -delete
 }
 
 
@@ -342,7 +369,7 @@ get_all_isbns_from_archive() {
 #     recursively call search_file_for_isbns for all the extracted files
 #   - Try to convert the file to a .txt via convert_to_txt()
 search_file_for_isbns() {
-	local isbns file_path="$1"
+	local file_path="$1" isbns
 	decho "Searching file '$file_path' for ISBN numbers..."
 
 	isbns="$(echo "$file_path" | find_isbns)"
@@ -370,7 +397,6 @@ search_file_for_isbns() {
 		return
 	fi
 
-
 	local ebookmeta
 	ebookmeta="$(ebook-meta "$file_path")"
 	decho "Ebook metadata:"
@@ -382,30 +408,12 @@ search_file_for_isbns() {
 		return
 	fi
 
-
-	decho "Trying to decompress the ebook and recursively scan the contents"
-	local tmpdir
-	tmpdir="$(mktemp -d)"
-	decho "Created a temporary folder '$tmpdir'"
-	if 7z x -o"$tmpdir" "$file_path" 2>&1 | debug_prefixer "[7zx] " 0 --width=80 -s; then
-		decho "Archive extracted successfully in $tmpdir, scanning contents recursively..."
-		while IFS= read -r -d '' file_to_check; do
-			#decho "Searching '$file_to_check' for ISBNs..."
-			isbns="$(search_file_for_isbns "$file_to_check" 2> >(debug_prefixer "[${file_to_check#$tmpdir}] " "${DEBUG_PREFIX_LENGTH:-40}") )"
-			if [[ "$isbns" != "" ]]; then
-				decho "Found ISBNs $isbns!"
-				echo -n "$isbns"
-				decho "Removing temporary folder '$tmpdir'..."
-				rm -rf "$tmpdir"
-				return
-			fi
-		done < <(find "$tmpdir" -type f  -print0 | sort -z)
-	else
-		decho "Error extracting the file (probably not an archive)"
+	isbns="$(get_all_isbns_from_archive "$file_path" | uniq_no_sort | paste -sd "$ISBN_RET_SEPARATOR")"
+	if [[ "$isbns" != "" ]]; then
+		decho "Extracted ISBNs '$isbns' from the archive file!"
+		echo -n "$isbns"
+		return
 	fi
-	decho "Removing temporary folder '$tmpdir'..."
-	rm -rf "$tmpdir"
-
 
 	local tmptxtfile
 	tmptxtfile="$(mktemp --suffix='.txt')"
