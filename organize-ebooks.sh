@@ -134,10 +134,9 @@ organize_by_filename_and_meta() {
 	tmpmfile="$(mktemp --suffix='.txt')"
 	decho "Created temporary file for metadata downloads '$tmpmfile'"
 
-	local title
-	title="$(echo "$ebookmeta" | grep_meta_val "Title" | sed -E 's/[^[:alnum:]]+/ /g' )"
-	local author
-	author="$(echo "$ebookmeta" | grep_meta_val "Author" | sed -e 's/ & .*//' -e 's/[^[:alnum:]]\+/ /g' )"
+	local title author
+	title="$(echo "$ebookmeta" | grep_meta_val "Title" | tokenize ' ' false)"
+	author="$(echo "$ebookmeta" | grep_meta_val "Author" | sed -e 's/ & .*//' | tokenize ' ' true 1)"
 	decho "Extracted title '$title' and author '$author'"
 
 	if [[ "${title//[^[:alpha:]]/}" != "" && "$title" != "Unknown" ]]; then
@@ -185,7 +184,7 @@ organize_by_filename_and_meta() {
 	fi
 
 	local filename
-	filename="$(basename "${old_path%.*}" | sed -E 's/[^[:alnum:]]+/ /g')"
+	filename="$(basename "${old_path%.*}" | tokenize)"
 
 	decho "Trying to fetch metadata only the filename '$filename'..."
 	if fetch_metadata "fetch-meta-filename" "$ORGANIZE_WITHOUT_ISBN_SOURCES" --title="$filename" > "$tmpmfile"; then

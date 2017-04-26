@@ -54,6 +54,7 @@ WITHOUT_ISBN_IGNORE="$(echo '
 # TODO: include words like monthly, vol(ume)?
 ' | grep -v '^#' | tr -d '\n')"
 
+TOKEN_MIN_LENGTH=3
 
 #shellcheck disable=SC2016
 OUTPUT_FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]+ (${d[PUBLISHED]%%-*})}${d[ISBN]+ [${d[ISBN]}]}.${d[EXT]}"'
@@ -84,6 +85,8 @@ handle_script_arg() {
 				ISBN_GREP_RF_REVERSE_LAST="${arg##*,}"
 			fi
 		;;
+
+		--token-min-length=*) TOKEN_MIN_LENGTH="${arg#*=}" ;;
 
 		-mfo=*|--metadata-fetch-order=*) ISBN_METADATA_FETCH_ORDER="${arg#*=}" ;;
 		-wii=*|--without-isbn-ignore=*) WITHOUT_ISBN_IGNORE="${arg#*=}" ;;
@@ -234,6 +237,22 @@ unique_filename() {
 # hashmap that is passed to stdin
 grep_meta_val() {
 	{ grep --max-count=1 "^$1" || true; } | awk -F' : ' '{ print $2 }'
+}
+
+
+# Splits the stdin stream into alpha or numeric tokens with length at least
+# $3 (or $TOKEN_MIN_LENGTH), converts them to lowercase, optionally
+# deduplicates them (if $2 is true or not specified) and finally concatenates
+# them with $1 (or ' ' if not specified)
+tokenize() {
+	local separator="${1:- }" dedup="${2:-true}" lenr="${3:-$TOKEN_MIN_LENGTH}"
+	grep -oE "[[:alpha:]]{${lenr},}|[[:digit:]]{${lenr},}" | to_lower | {
+		if [[ "$dedup" == true ]]; then
+			awk '!x[$0]++'
+		else
+			cat
+		fi
+	} | paste -sd "$separator"
 }
 
 

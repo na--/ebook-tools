@@ -9,7 +9,6 @@ DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 OUTPUT_FOLDERS=()
 
 QUICK_MODE=false
-MIN_TOKEN_LENGTH=4
 IGNORED_DIFFERENCES=""
 CUSTOM_MOVE_BASE_DIR=""
 
@@ -29,7 +28,6 @@ for arg in "$@"; do
 	case $arg in
 		-o=*|--output-folder=*) OUTPUT_FOLDERS+=("${arg#*=}") ;;
 		-qm=*|--quick-mode=*) QUICK_MODE="${arg#*=}" ;;
-		-mtl=*|--min-token-length=*) MIN_TOKEN_LENGTH="${arg#*=}" ;;
 		-id=*|--ignored-differences=*) IGNORED_DIFFERENCES="${arg#*=}" ;;
 		-cmbd=*|--custom-move-base-dir=*) CUSTOM_MOVE_BASE_DIR="${arg#*=}" ;;
 		-h|--help) print_help; exit 1 ;;
@@ -42,9 +40,6 @@ unset -v arg
 if [[ "$#" == "0" ]]; then print_help; exit 2; fi
 
 
-tokenize() {
-	echo "$1" |  grep -oE "[[:alnum:]]{${MIN_TOKEN_LENGTH},}" | to_lower | awk '!x[$0]++'
-}
 
 reorganize_manually() {
 	echo "reorganize_manually '$1'..."
@@ -129,7 +124,7 @@ review_file() {
 	local cf_path="$1" metadata_path="$1.${OUTPUT_METADATA_EXTENSION}"
 	local cf_name cf_tokens old_path old_name old_name_hl
 	cf_name="$(basename "$cf_path")"
-	cf_tokens="$(tokenize "${cf_name%.*}" | paste -sd '|')"
+	cf_tokens="$(echo "${cf_name%.*}" | tokenize '|')"
 
 	echo -n "File	'$cf_name' (in '${cf_path%/*}/')"
 	if [[ -f "$metadata_path" ]]; then
@@ -141,7 +136,7 @@ review_file() {
 		echo -e "Old	'$old_name_hl' (in '${old_path%/*}/')"
 
 		local missing_words
-		missing_words="$(tokenize "${old_name%.*}" | { grep -i -v -E "^($cf_tokens)+\$" || true; } | paste -sd ',')"
+		missing_words="$(echo "${old_name%.*}" | tokenize '\n' | { grep -i -v -E "^($cf_tokens)+\$" || true; } | paste -sd ',')"
 		if [[ "$missing_words" == "" ]]; then
 			echo -e "${BOLD}No missing words from the old filename in the new!${NC}"
 			if [[ "$QUICK_MODE" == true ]]; then
