@@ -25,24 +25,25 @@ print_help() {
 	echo "For information about the possible options, see the beginning of the script itself"
 }
 
-for i in "$@"; do
-	case $i in
-		-o=*|--output-folder=*) OUTPUT_FOLDERS+=("${i#*=}") ;;
-		-qm=*|--quick-mode=*) QUICK_MODE="${i#*=}" ;;
-		-mtl=*|--min-token-length=*) MIN_TOKEN_LENGTH="${i#*=}" ;;
-		-id=*|--ignored-differences=*) IGNORED_DIFFERENCES="${i#*=}" ;;
-		-cmbd=*|--custom-move-base-dir=*) CUSTOM_MOVE_BASE_DIR="${i#*=}" ;;
+for arg in "$@"; do
+	case $arg in
+		-o=*|--output-folder=*) OUTPUT_FOLDERS+=("${arg#*=}") ;;
+		-qm=*|--quick-mode=*) QUICK_MODE="${arg#*=}" ;;
+		-mtl=*|--min-token-length=*) MIN_TOKEN_LENGTH="${arg#*=}" ;;
+		-id=*|--ignored-differences=*) IGNORED_DIFFERENCES="${arg#*=}" ;;
+		-cmbd=*|--custom-move-base-dir=*) CUSTOM_MOVE_BASE_DIR="${arg#*=}" ;;
 		-h|--help) print_help; exit 1 ;;
-		-*|--*) handle_script_arg "$i" ;;
+		-*|--*) handle_script_arg "$arg" ;;
 		*) break ;;
 	esac
 	shift # past argument=value or argument with no value
 done
+unset -v arg
 if [[ "$#" == "0" ]]; then print_help; exit 2; fi
 
 
 tokenize() {
-	echo "$1" |  grep -oE "[[:alnum:]]{${MIN_TOKEN_LENGTH},}" | sed -E 's/[[:upper:]]+/\L&/g' | awk '!x[$0]++'
+	echo "$1" |  grep -oE "[[:alnum:]]{${MIN_TOKEN_LENGTH},}" | to_lower | awk '!x[$0]++'
 }
 
 reorganize_manually() {
@@ -94,21 +95,20 @@ open_in_external_viewer() {
 }
 
 open_with_less() {
-
-	local mimetype
-	mimetype="$(file --brief --mime-type "$1")"
-	echo "Reading '$1' ($mimetype) with less..."
+	local file_path="$1" mimetype
+	mimetype="$(file --brief --mime-type "$file_path")"
+	echo "Reading '$file_path' ($mimetype) with less..."
 	if [[ "$mimetype" =~ $ISBN_DIRECT_GREP_FILES ]]; then
-		less "$1"
+		less "$file_path"
 		return
 	fi
 
 	local tmptxtfile
 	tmptxtfile="$(mktemp --suffix='.txt')"
-	echo "Converting ebook '$1' to text format in file '$tmptxtfile'..."
+	echo "Converting ebook '$file_path' to text format in file '$tmptxtfile'..."
 
 	local cresult
-	if cresult="$(convert_to_txt "$1" "$tmptxtfile" "$mimetype" 2>&1)"; then
+	if cresult="$(convert_to_txt "$file_path" "$tmptxtfile" "$mimetype" 2>&1)"; then
 		less "$tmptxtfile"
 	else
 		echo "Conversion failed!"
@@ -120,6 +120,7 @@ open_with_less() {
 }
 
 move_file_meta() {
+	#shellcheck disable=SC2016
 	echo -e "Moving:	'$2'${3+\n\t'$3'}\nTo:	'$1'"
 	echo TODO
 }
@@ -134,7 +135,7 @@ review_file() {
 	if [[ -f "$metadata_path" ]]; then
 		echo -e " ${BOLD}[has metadata]${NC}"
 
-		old_path="$(cat "$metadata_path" | grep_meta_val "Old file path")"
+		old_path="$(grep_meta_val "Old file path" < "$metadata_path")"
 		old_name="$(basename "$old_path")"
 		old_name_hl="$(echo "$old_name" | { grep -i --color=always -E "$cf_tokens" || echo "$old_name"; } )"
 		echo -e "Old	'$old_name_hl' (in '${old_path%/*}/')"

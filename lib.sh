@@ -63,34 +63,35 @@ OUTPUT_METADATA_EXTENSION="meta"
 # Handle parsing from arguments and setting all the common config vars
 #shellcheck disable=SC2034
 handle_script_arg() {
-	case "$1" in
+	local arg="$1"
+	case "$arg" in
 		-v|--verbose) VERBOSE=true ;;
 		-d|--dry-run) DRY_RUN=true ;;
 		-sl|--symlink-only) SYMLINK_ONLY=true ;;
 		-dm|--delete-metadata) DELETE_METADATA=true ;;
 
-		--tested-archive-extensions=*) TESTED_ARCHIVE_EXTENSIONS="${1#*=}" ;;
-		-i=*|--isbn-regex=*) ISBN_REGEX="${1#*=}" ;;
-		--isbn-direct-grep-files=*) ISBN_DIRECT_GREP_FILES="${1#*=}" ;;
-		--isbn-extraction-ignore=*) ISBN_IGNORED_FILES="${1#*=}" ;;
+		--tested-archive-extensions=*) TESTED_ARCHIVE_EXTENSIONS="${arg#*=}" ;;
+		-i=*|--isbn-regex=*) ISBN_REGEX="${arg#*=}" ;;
+		--isbn-direct-grep-files=*) ISBN_DIRECT_GREP_FILES="${arg#*=}" ;;
+		--isbn-extraction-ignore=*) ISBN_IGNORED_FILES="${arg#*=}" ;;
 		--reorder-files-for-grep=*)
-			i="${1#*=}"
-			if [[ "$1" == "false" ]]; then
+			i="${arg#*=}"
+			if [[ "$arg" == "false" ]]; then
 				ISBN_GREP_REORDER_FILES=false
 			else
 				ISBN_GREP_REORDER_FILES=true
-				ISBN_GREP_RF_SCAN_FIRST="${1%,*}"
-				ISBN_GREP_RF_REVERSE_LAST="${1##*,}"
+				ISBN_GREP_RF_SCAN_FIRST="${arg%,*}"
+				ISBN_GREP_RF_REVERSE_LAST="${arg##*,}"
 			fi
 		;;
 
-		-mfo=*|--metadata-fetch-order=*) ISBN_METADATA_FETCH_ORDER="${1#*=}" ;;
-		-wii=*|--without-isbn-ignore=*) WITHOUT_ISBN_IGNORE="${1#*=}" ;;
+		-mfo=*|--metadata-fetch-order=*) ISBN_METADATA_FETCH_ORDER="${arg#*=}" ;;
+		-wii=*|--without-isbn-ignore=*) WITHOUT_ISBN_IGNORE="${arg#*=}" ;;
 
-		-oft=*|--output-filename-template=*) OUTPUT_FILENAME_TEMPLATE="${1#*=}" ;;
-		-ome=*|--output-metadata-extension=*) OUTPUT_METADATA_EXTENSION="${1#*=}" ;;
+		-oft=*|--output-filename-template=*) OUTPUT_FILENAME_TEMPLATE="${arg#*=}" ;;
+		-ome=*|--output-metadata-extension=*) OUTPUT_METADATA_EXTENSION="${arg#*=}" ;;
 
-		-*) echo "Invalid option '$1'"; exit 4; ;;
+		-*) echo "Invalid option '$arg'"; exit 4; ;;
 	esac
 }
 
@@ -130,6 +131,12 @@ debug_prefixer() {
 	while IFS= read -r line || [[ -n "$line" ]] ; do
 		decho "${prefix}${line}"
 	done
+}
+
+
+# Converts to lowercase (with unicode support)
+to_lower() {
+	sed -E 's/[[:upper:]]+/\L&/g'
 }
 
 
@@ -213,16 +220,12 @@ command_exists() {
 # insert " ($n)" before the extension of $2 and return the first path for
 # which no file is present.
 unique_filename() {
-	local new_path
-	new_path="$1/$2"
-
-	local counter=0
+	local new_path="$1/$2" counter=0
 	while [[ -e "$new_path" ]]; do
 		counter="$((counter+1))"
-		decho "File '$new_path' already exists in destination '${1}', trying with counter $counter!"
+		decho "File '$new_path' already exists in destination '$1', trying with counter $counter!"
 		new_path="${1}/${2%.*} ($counter).${2##*.}"
 	done
-
 	echo "$new_path"
 }
 
@@ -240,17 +243,16 @@ grep_meta_val() {
 #  - If it's a pdf and pdfinfo returns an error
 #  - If it has an archive extension but `7z t` returns an error
 check_file_for_corruption() {
-	decho "Testing '$1' for corruption..."
+	local file_path="$1"
+	decho "Testing '$file_path' for corruption..."
 
-	if [[ "$(tr -d '\0' < "$1" | head -c 1)" == "" ]]; then
+	if [[ "$(tr -d '\0' < "$file_path" | head -c 1)" == "" ]]; then
 		echo "The file is empty or contains only zeros!"
 		return
 	fi
 
-	local ext
-	ext="${1##*.}"
-	local mimetype
-	mimetype="$(file --brief --mime-type "$1")"
+	local ext="${1##*.}" mimetype
+	mimetype="$(file --brief --mime-type "$file_path")"
 
 	if [[ "$mimetype" == "application/octet-stream" && "$ext" =~ ^(pdf|djv|djvu)$ ]]; then
 		echo "The file has a .$ext extension but '$mimetype' MIME type!"
@@ -260,7 +262,7 @@ check_file_for_corruption() {
 			decho "pdfinfo does not exist, could not check if pdf is OK"
 		else
 			local pdfinfo_output
-			if ! pdfinfo_output="$(pdfinfo "$1" 2> >(tail | debug_prefixer "[pdfinfo-err|tail] " 0 --width=80 -s))"; then
+			if ! pdfinfo_output="$(pdfinfo "$file_path" 2> >(tail | debug_prefixer "[pdfinfo-err|tail] " 0 --width=80 -s))"; then
 				decho "pdfinfo returned an error!"
 				echo "$pdfinfo_output" | debug_prefixer "[pdfinfo] " 0 --width=80 -t
 				echo "Has pdf MIME type or extension, but pdfinfo returned an error!"
@@ -280,7 +282,7 @@ check_file_for_corruption() {
 		decho "The file has a '.$ext' extension, testing with 7z..."
 		local log
 
-		if ! log="$(7z t "$1" 2>&1)"; then
+		if ! log="$(7z t "$file_path" 2>&1)"; then
 			decho "Test failed!"
 			echo "$log" |  debug_prefixer "[7z-test-log] " 0 --width=80 -s
 			echo "Looks like an archive, but testing it with 7z failed!"
