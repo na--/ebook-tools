@@ -64,9 +64,11 @@ get_option() {
 		fi
 		decho "Move file to '${OUTPUT_FOLDERS[$i]}'"
 	done
-	decho -e " ${BOLD}m/tab${NC})	Move to another folder		| ${BOLD}r/bs${NC})	Reorganize file manually	| ${BOLD}t/\`${NC})	Run shell in terminal"
-	decho -e " ${BOLD}o/ent${NC})	Open file in external viewer	| ${BOLD}l${NC})	Read in terminal		| ${BOLD}c${NC})	Read the saved metadata file	"
-	decho -e " ${BOLD}s${NC})	Skip file			| ${BOLD}e${NC})	Eval code (change env vars)	| ${BOLD}q${NC}) 	Quit"
+	decho -e " ${BOLD}m/tab${NC})	Move to another folder		| ${BOLD}r/bs${NC})	Reorganize file manually"
+	decho -e " ${BOLD}o/ent${NC})	Open file in external viewer	| ${BOLD}l${NC})	Read in terminal"
+	decho -e " ${BOLD}c${NC})	Read the saved metadata file	| ${BOLD}?${NC})	Run ebook-meta on the file"
+	decho -e " ${BOLD}t/\`${NC})	Run shell in terminal		| ${BOLD}e${NC})	Eval code (change env vars)"
+	decho -e " ${BOLD}s${NC})	Skip file			| ${BOLD}q${NC}) 	Quit"
 
 	IFS= read -r -s -n1 choice < /dev/tty
 	#decho "Character code: $(printf '%02d' "'$choice")" #'
@@ -124,10 +126,11 @@ cgrep() {
 }
 
 header_and_check() {
-	local cf_path="$1" metadata_path="$2" cf_name
+	local cf_path="$1" metadata_path="$2" cf_name cf_hsize
 	cf_name="$(basename "$cf_path")"
+	cf_hsize="$(numfmt --to=iec-i --suffix=B --format='%.1f' "$(stat -c '%s' "$cf_path")")"
 
-	echo -n "File	'$cf_name' (in '${cf_path%/*}/')"
+	echo -en "File	'$cf_name' (${BOLD}${cf_hsize}${NC} in '${cf_path%/*}/')"
 	if [[ !  -f "$metadata_path" ]]; then
 		echo -e " ${BOLD}${RED}[no metadata]${NC}"
 		return 1
@@ -166,7 +169,7 @@ review_file() {
 			[0-9])
 				if (( opt < ${#OUTPUT_FOLDERS[@]} )); then
 					move_file_meta "${OUTPUT_FOLDERS[$opt]}" "$cf_path" "$metadata_path"
-					break
+					return
 				else
 					echo "Invalid output path $opt!"
 				fi
@@ -176,21 +179,22 @@ review_file() {
 				read -r -e -i "$CUSTOM_MOVE_BASE_DIR" -p "Move the file to: " new_path  < /dev/tty
 				if [[ "$new_path" != "" ]]; then
 					move_file_meta "$new_path" "$cf_path" "$metadata_path"
-					break
+					return
 				else
 					echo "No path entered, ignoring!"
 				fi
 			;;
-			"r") reorganize_manually "$cf_path" && break ;;
+			"r") reorganize_manually "$cf_path" && return ;;
 			"o") open_in_external_viewer "$cf_path" ;;
 			"l") open_with_less "$cf_path" ;;
 			"c")
 				if [[ -f "$metadata_path" ]]; then
-					cat "$metadata_path"
+					debug_prefixer " " 8 --width=80 -t < "$metadata_path"
 				else
 					echo "There is no metadata file present!"
 				fi
 			;;
+			"?") ebook-meta "$cf_path" | debug_prefixer " " 8 --width=80 -t ;;
 			"e")
 				local evals=""
 				read -r -e -i "IGNORED_DIFFERENCES='$IGNORED_DIFFERENCES'" -p "Evaluate: " evals  < /dev/tty
@@ -203,7 +207,11 @@ review_file() {
 			"s") return ;;
 			*) echo "Chosen option '$opt' is invalid, try again" ;;
 		esac
+		echo
 	done
+
+	# Quick mode was enabled and the file looked ok!
+	move_file_meta "${OUTPUT_FOLDERS[0]}" "$cf_path" "$metadata_path"
 }
 
 
