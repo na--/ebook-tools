@@ -25,8 +25,8 @@ print_help() {
 
 for arg in "$@"; do
 	case $arg in
+		-qm|--quick-mode) QUICK_MODE=true ;;
 		-o=*|--output-folder=*) OUTPUT_FOLDERS+=("${arg#*=}") ;;
-		-qm=*|--quick-mode=*) QUICK_MODE="${arg#*=}" ;;
 		-id=*|--ignored-differences=*) IGNORED_DIFFERENCES="${arg#*=}" ;;
 		-cmbd=*|--custom-move-base-dir=*) CUSTOM_MOVE_BASE_DIR="${arg#*=}" ;;
 		-h|--help) print_help; exit 1 ;;
@@ -123,38 +123,44 @@ cgrep() {
 	GREP_COLOR="$1" grep --color=always -iE "^|$2"
 }
 
-review_file() {
-	local cf_path="$1" metadata_path="$1.${OUTPUT_METADATA_EXTENSION}"
-	local cf_name cf_tokens old_path old_name old_name_hl missing_words header=""
+header_and_check() {
+	local cf_path="$1" metadata_path="$2" cf_name
 	cf_name="$(basename "$cf_path")"
+
+	echo -n "File	'$cf_name' (in '${cf_path%/*}/')"
+	if [[ !  -f "$metadata_path" ]]; then
+		echo -e " ${BOLD}${RED}[no metadata]${NC}"
+		return 1
+	fi
+	echo -e " ${BOLD}[has metadata]${NC}"
+
+	local cf_tokens old_path old_name old_name_hl missing_words
+
 	cf_tokens="$(echo "${cf_name%.*}" | tokenize '|')"
+	old_path="$(grep_meta_val "Old file path" < "$metadata_path")"
+	old_name="$(basename "$old_path")"
 
-	header="File	'$cf_name' (in '${cf_path%/*}/')"
-	if [[ -f "$metadata_path" ]]; then
-		header="${header} ${BOLD}[has metadata]${NC}"
+	missing_words="$(echo "${old_name%.*}" | tokenize '\n' | { grep -ivE "^($cf_tokens)+\$${IGNORED_DIFFERENCES:+|^$IGNORED_DIFFERENCES\$}" || true; } | paste -sd '|')"
+	old_name_hl="$(echo "$old_name" | cgrep '1;31' "$missing_words" | cgrep '1;32' "$cf_tokens" | cgrep '1;30' "$IGNORED_DIFFERENCES" )"
+	echo "Old	'$old_name_hl' (in '${old_path%/*}/')"
 
-		old_path="$(grep_meta_val "Old file path" < "$metadata_path")"
-		old_name="$(basename "$old_path")"
-		missing_words="$(echo "${old_name%.*}" | tokenize '\n' | { grep -ivE "^($cf_tokens)+\$${IGNORED_DIFFERENCES:+|^$IGNORED_DIFFERENCES\$}" || true; } | paste -sd '|')"
-
-		old_name_hl="$(echo "$old_name" | cgrep '1;31' "$missing_words" | cgrep '1;32' "$cf_tokens" | cgrep '1;30' "$IGNORED_DIFFERENCES" )"
-		header="${header}\nOld	'$old_name_hl' (in '${old_path%/*}/')"
-
-		if [[ "$missing_words" == "" ]]; then
-			header="${header}\n${BOLD}No missing words from the old filename in the new!${NC}"
-			if [[ "$QUICK_MODE" == true ]]; then
-				echo "Quick mode enabled, skipping to the next file"
-				return
-			fi
-		else
-			header="${header}\nMissing words from the old file name: ${BOLD}$missing_words${NC}"
-		fi
-	else
-		metadata_path=""
+	if [[ "$missing_words" != "" ]]; then
+		echo -e "Missing words from the old file name: ${BOLD}$missing_words${NC}"
+		return 2
 	fi
 
-	local opt
-	while echo -e "$header"; opt="$(get_option)"; do
+	echo -e "{BOLD}No missing words from the old filename in the new!${NC}"
+	if [[ "$QUICK_MODE" != true ]]; then
+		return 3
+	fi
+	echo "Quick mode enabled, skipping to the next file"
+}
+
+
+review_file() {
+	local cf_path="$1" metadata_path="$1.${OUTPUT_METADATA_EXTENSION}" opt
+	while ! header_and_check "$cf_path" "$metadata_path"; do
+		opt="$(get_option)"
 		echo "Chosen option: $opt"
 		case "$opt" in
 			[0-9])
@@ -179,7 +185,7 @@ review_file() {
 			"o") open_in_external_viewer "$cf_path" ;;
 			"l") open_with_less "$cf_path" ;;
 			"c")
-				if [[ "$metadata_path" != "" ]]; then
+				if [[ -f "$metadata_path" ]]; then
 					cat "$metadata_path"
 				else
 					echo "There is no metadata file present!"
@@ -198,7 +204,6 @@ review_file() {
 			*) echo "Chosen option '$opt' is invalid, try again" ;;
 		esac
 	done
-
 }
 
 
@@ -207,7 +212,6 @@ for fpath in "$@"; do
 
 	find "$fpath" -type f ! -name "*.${OUTPUT_METADATA_EXTENSION}" -print0 | sort -z | while IFS= read -r -d '' file_to_review
 	do
-
 		review_file "$file_to_review"
 		echo "==============================================================================="
 		echo
