@@ -21,7 +21,7 @@ TESTED_ARCHIVE_EXTENSIONS='^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|
 # is_isbn_valid() or another ISBN validator
 ISBN_REGEX='(?<![0-9])(977|978|979)?+(([ –—-]?[0-9][ –—-]?){9}[0-9xX])(?![0-9-])'
 ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
-ISBN_IGNORED_FILES='^image/(png|jpeg|gif)|application/(x-shockwave-flash|CDFV2|vnd.ms-opentype|x-font-ttf)$'
+ISBN_IGNORED_FILES='^image/(png|jpeg|gif)|application/(x-shockwave-flash|CDFV2|vnd.ms-opentype|x-font-ttf|x-dosexec|msword|vnd.ms-excel)|audio/.+$'
 ISBN_RET_SEPARATOR=","
 
 # These options specify if and how we should reoder ISBN_DIRECT_GREP files
@@ -335,21 +335,23 @@ get_all_isbns_from_archive() {
 	tmpdir="$(mktemp -d)"
 
 	decho "Trying to decompress '$file_path' into tmp folder '$tmpdir' and recursively scan the contents"
-	if 7z x -o"$tmpdir" "$file_path" 2>&1 | debug_prefixer "[7zx] " 0 --width=80 -s; then
-		decho "Archive extracted successfully in '$tmpdir', scanning contents recursively..."
-		while IFS= read -r -d '' file_to_check; do
-			#decho "Searching '$file_to_check' for ISBNs..."
-			isbns="$(search_file_for_isbns "$file_to_check" 2> >(debug_prefixer "[${file_to_check#$tmpdir}] " "${DEBUG_PREFIX_LENGTH:-40}") )"
-			if [[ "$isbns" != "" ]]; then
-				decho "Found ISBNs $isbns!"
-				echo "$isbns" | tr "$ISBN_RET_SEPARATOR" '\n'
-			fi
-			decho "Removing '$file_to_check'..."
-			rm "$file_to_check"
-		done < <(find "$tmpdir" -type f  -print0 | sort -z)
-	else
-		decho "Error extracting the file (probably not an archive)"
+	if ! 7z x -o"$tmpdir" "$file_path" 2>&1 | debug_prefixer "[7zx] " 0 --width=80 -s; then
+		decho "Error extracting the file (probably not an archive)! Removing tmp dir..."
+		rm -rf "$tmpdir"
+		return 1
 	fi
+
+	decho "Archive extracted successfully in '$tmpdir', scanning contents recursively..."
+	while IFS= read -r -d '' file_to_check; do
+		#decho "Searching '$file_to_check' for ISBNs..."
+		isbns="$(search_file_for_isbns "$file_to_check" 2> >(debug_prefixer "[${file_to_check#$tmpdir}] " "${DEBUG_PREFIX_LENGTH:-40}") )"
+		if [[ "$isbns" != "" ]]; then
+			decho "Found ISBNs $isbns!"
+			echo "$isbns" | tr "$ISBN_RET_SEPARATOR" '\n'
+		fi
+		decho "Removing '$file_to_check'..."
+		rm "$file_to_check"
+	done < <(find "$tmpdir" -type f  -print0 | sort -z)
 
 	decho "Removing temporary folder '$tmpdir' (should be empty)..."
 	find "$tmpdir" -type d -empty -delete
@@ -408,33 +410,35 @@ search_file_for_isbns() {
 		return
 	fi
 
-	isbns="$(get_all_isbns_from_archive "$file_path" | uniq_no_sort | paste -sd "$ISBN_RET_SEPARATOR")"
-	if [[ "$isbns" != "" ]]; then
-		decho "Extracted ISBNs '$isbns' from the archive file!"
-		echo -n "$isbns"
-		return
-	fi
 
-	local tmptxtfile
-	tmptxtfile="$(mktemp --suffix='.txt')"
-	decho "Converting ebook to text format in file '$tmptxtfile'..."
-	if convert_to_txt "$file_path" "$tmptxtfile" "$mimetype" 2>&1 | debug_prefixer "[ebook2txt] " 0 --width=80 -s; then
-		decho "Conversion is done, trying to find ISBNs in the text output..."
-		isbns="$(cat_file_for_isbn_grep "$tmptxtfile" | find_isbns)"
+	if isbns="$(get_all_isbns_from_archive "$file_path" | uniq_no_sort | paste -sd "$ISBN_RET_SEPARATOR")"; then
 		if [[ "$isbns" != "" ]]; then
-			decho "Extracted ISBNs '$isbns' from the converted text output!"
+			decho "Extracted ISBNs '$isbns' from the archive file!"
 			echo -n "$isbns"
-			decho "Removing '$tmptxtfile'..."
-			rm "$tmptxtfile"
 			return
-		else
-			decho "Did not find any ISBNs"
 		fi
 	else
-		decho "There was an error converting the book to txt format"
+		local tmptxtfile
+		tmptxtfile="$(mktemp --suffix='.txt')"
+		decho "Converting ebook to text format in file '$tmptxtfile'..."
+		if convert_to_txt "$file_path" "$tmptxtfile" "$mimetype" 2>&1 | debug_prefixer "[ebook2txt] " 0 --width=80 -s; then
+			decho "Conversion is done, trying to find ISBNs in the text output..."
+			isbns="$(cat_file_for_isbn_grep "$tmptxtfile" | find_isbns)"
+			if [[ "$isbns" != "" ]]; then
+				decho "Extracted ISBNs '$isbns' from the converted text output!"
+				echo -n "$isbns"
+				decho "Removing '$tmptxtfile'..."
+				rm "$tmptxtfile"
+				return
+			else
+				decho "Did not find any ISBNs"
+			fi
+		else
+			decho "There was an error converting the book to txt format"
+		fi
+		decho "Removing '$tmptxtfile'..."
+		rm "$tmptxtfile"
 	fi
-	decho "Removing '$tmptxtfile'..."
-	rm "$tmptxtfile"
 
 	decho "Could not find any ISBNs in '$file_path' :("
 }
