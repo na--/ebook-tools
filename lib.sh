@@ -21,7 +21,7 @@ TESTED_ARCHIVE_EXTENSIONS='^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|
 # is_isbn_valid() or another ISBN validator
 ISBN_REGEX='(?<![0-9])(977|978|979)?+(([ –—-]?[0-9][ –—-]?){9}[0-9xX])(?![0-9-])'
 ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
-ISBN_IGNORED_FILES='^image/(png|jpeg|gif)|application/(x-shockwave-flash|CDFV2|vnd.ms-opentype|x-font-ttf|x-dosexec|msword|vnd.ms-excel)|audio/.+$'
+ISBN_IGNORED_FILES='^image/(png|jpeg|gif)|application/(x-shockwave-flash|CDFV2|vnd.ms-opentype|x-font-ttf|x-dosexec|msword|vnd.ms-excel|x-java-applet)|audio/.+$'
 ISBN_RET_SEPARATOR=","
 
 # These options specify if and how we should reoder ISBN_DIRECT_GREP files
@@ -34,14 +34,16 @@ ISBN_GREP_REORDER_FILES=true
 ISBN_GREP_RF_SCAN_FIRST=400
 ISBN_GREP_RF_REVERSE_LAST=50
 
-ISBN_METADATA_FETCH_ORDER="Goodreads,Amazon.com,Google,ISBNDB,WorldCat xISBN,OZON.ru" # Requires Calibre 2.84+
+# Require Calibre 2.84+, previous versions will search in all enabled sources in the GUI
+ISBN_METADATA_FETCH_ORDER="Goodreads,Amazon.com,Google,ISBNDB,WorldCat xISBN,OZON.ru"
+ORGANIZE_WITHOUT_ISBN_SOURCES="Goodreads,Amazon.com,Google"
 
 # Should be matched against a lowercase filename.ext, lines that start with #
 # and newlines are removed. The default value should filter out most
 # periodicals and images
 WITHOUT_ISBN_IGNORE="$(echo '
 # Images:
-\.(png|jpg|jpeg|gif)$
+\.(png|jpg|jpeg|gif|bmp)$
 # Perdiodicals with filenames that contain something like 2010-11, 199010, 2015_7, 20110203:
 |(^|[^0-9])(19|20)[0-9][0-9][ _\.-]*(0?[1-9]|10|11|12)([0-9][0-9])?($|[^0-9])
 # Periodicals with month numbers before the year
@@ -89,6 +91,7 @@ handle_script_arg() {
 		--token-min-length=*) TOKEN_MIN_LENGTH="${arg#*=}" ;;
 
 		-mfo=*|--metadata-fetch-order=*) ISBN_METADATA_FETCH_ORDER="${arg#*=}" ;;
+		-owis=*|--organize--without--isbn-sources=*) ORGANIZE_WITHOUT_ISBN_SOURCES="${arg#*=}" ;;
 		-wii=*|--without-isbn-ignore=*) WITHOUT_ISBN_IGNORE="${arg#*=}" ;;
 
 		-oft=*|--output-filename-template=*) OUTPUT_FILENAME_TEMPLATE="${arg#*=}" ;;
@@ -444,6 +447,20 @@ search_file_for_isbns() {
 }
 
 
+move_or_link_file() {
+	local current_path="$1" new_path="$2"
+
+	$DRY_RUN && decho "(DRY RUN! All operations except metadata deletion are skipped!)"
+	if [[ "$SYMLINK_ONLY" == true ]]; then
+		decho "Symlinking file '$current_path' to '$new_path'..."
+		$DRY_RUN || ln -s "$(realpath "$current_path")" "$new_path"
+	else
+		decho "Moving file '$current_path' to '$new_path'..."
+		$DRY_RUN || mv --no-clobber "$current_path" "$new_path"
+	fi
+}
+
+
 # Arguments: new_folder, current_ebook_path, current_metadata_path
 move_or_link_ebook_file_and_metadata() {
 	local new_folder="$1" current_ebook_path="$2" current_metadata_path="$3" line
@@ -465,16 +482,9 @@ move_or_link_ebook_file_and_metadata() {
 
 	local new_path
 	new_path="$(unique_filename "${new_folder%/}" "$new_name")"
-	echo -e "${GREEN}OK${NC}:\t${current_ebook_path}\nTO:\t${new_path}\n"
+	echo -n "$new_path"
 
-	$DRY_RUN && decho "(DRY RUN! All operations except metadata deletion are skipped!)"
-	if [[ "$SYMLINK_ONLY" == true ]]; then
-		decho "Symlinking file '$current_ebook_path' to '$new_path'..."
-		$DRY_RUN || ln -s "$(realpath "$current_ebook_path")" "$new_path"
-	else
-		decho "Moving file '$current_ebook_path' to '$new_path'..."
-		$DRY_RUN || mv --no-clobber "$current_ebook_path" "$new_path"
-	fi
+	move_or_link_file "$current_ebook_path" "$new_path"
 
 	if [[ "$DELETE_METADATA" == true ]]; then
 		decho "Removing metadata file '$current_metadata_path'..."

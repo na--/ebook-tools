@@ -39,18 +39,6 @@ unset -v arg
 if [[ "$#" == "0" ]]; then print_help; exit 2; fi
 
 
-
-reorganize_manually() {
-	echo "reorganize_manually '$1'..."
-	echo "TODO"
-	return 1
-	# loop through entering isbn/title&author and retreiving information from online sources
-	# until the user chooses to accept it
-	# then choose an output and move the file with the new metadata (preserving the old) and filename
-	# escape returns the user in the upper menu?
-}
-
-
 get_option() {
 	local i choice
 
@@ -82,13 +70,6 @@ get_option() {
 	esac
 }
 
-open_in_external_viewer() {
-	decho "Opening file in the external viewer"
-
-	xdg-open "$1" >/dev/null 2>&1 &
-
-	echo "TODO: position window"
-}
 
 open_with_less() {
 	local file_path="$1" mimetype
@@ -115,10 +96,17 @@ open_with_less() {
 	rm "$tmptxtfile"
 }
 
-move_file_meta() {
-	#shellcheck disable=SC2016
-	echo -e "Moving:	'$2'${3+\n\t'$3'}\nTo:	'$1'"
-	echo TODO
+move_or_link_file_and_maybe_meta() {
+	local new_folder="$1" cf_path="$2" metadata_path="$3" cf_name new_path new_metadata_path
+	cf_name="$(basename "$cf_path")"
+	new_path="$(unique_filename "${new_folder%/}" "$cf_name")"
+	new_metadata_path="$new_path.${OUTPUT_METADATA_EXTENSION}"
+
+	move_or_link_file "$cf_path" "$new_path"
+
+	if [[ -f "$metadata_path" ]]; then
+		move_or_link_file "$metadata_path" "$new_metadata_path"
+	fi
 }
 
 cgrep() {
@@ -152,7 +140,7 @@ header_and_check() {
 		return 2
 	fi
 
-	echo -e "{BOLD}No missing words from the old filename in the new!${NC}"
+	echo -e "${BOLD}No missing words from the old filename in the new!${NC}"
 	if [[ "$QUICK_MODE" != true ]]; then
 		return 3
 	fi
@@ -160,15 +148,99 @@ header_and_check() {
 }
 
 
+reorganize_manually() {
+	local cf_path="$1" metadata_path="$1.${OUTPUT_METADATA_EXTENSION}" cf_folder="${1%/*}" old_path="" opt
+	if [[ -f "$metadata_path" ]]; then
+		old_path="$(grep_meta_val "Old file path" < "$metadata_path")"
+	fi
+	old_path="${old_path:-$cf_path}"
+
+	read -r -e -i "$(basename "$old_path")" -p "Enter search terms or 'new filename': " opt  < /dev/tty
+	echo "Your choice: $opt"
+	if [[ "$opt" == "" ]]; then
+		return 1
+	elif [[ "$opt" =~ ^\'.+\'$ ]]; then
+		opt="${opt:1:-1}"
+		echo "Renaming file to '$opt', removing the old metadata if present and saving old file path in the new metadata..."
+		move_or_link_file "$cf_path" "$cf_folder/$opt"
+		if [[ -f "$metadata_path" ]]; then
+			$DRY_RUN || rm "$metadata_path"
+		fi
+		cf_path="$cf_folder/$opt"
+		metadata_path="$cf_path.${OUTPUT_METADATA_EXTENSION}"
+		$DRY_RUN || echo "Old file path       : $old_path" > "$metadata_path"
+		review_file "$cf_path"
+		return 0
+	fi
+
+	local isbn fetch_arg fetch_sources fetch_source tmpmfile
+	tmpmfile="$(mktemp --suffix='.txt')"
+	isbn="$(echo "$opt" | find_isbns '\n' | head -n1)"
+	if [[ "$isbn" != "" ]]; then
+		echo "Fetching metadata from sources $ISBN_METADATA_FETCH_ORDER for ISBN '$isbn' into '$tmpmfile'..."
+		fetch_arg="--isbn='$isbn'"
+		IFS=, read -ra fetch_sources <<< "$ISBN_METADATA_FETCH_ORDER"
+	else
+		echo "Fetching metadata from sources $ORGANIZE_WITHOUT_ISBN_SOURCES for title '$opt' into '$tmpmfile'..."
+		fetch_arg="--title='$opt'"
+		IFS=, read -ra fetch_sources <<< "$ORGANIZE_WITHOUT_ISBN_SOURCES"
+	fi
+
+	for fetch_source in "${fetch_sources[@]:-}"; do
+		decho "Fetching metadata from ${fetch_source:-all sources}..."
+		if fetch_metadata "fetch-meta-${fetch_source:-all}" "${fetch_source:-}" "$fetch_arg" > "$tmpmfile"; then
+			sleep 0.1
+			decho "Successfully fetched metadata: "
+			debug_prefixer "[meta] " 0 --width=100 -t < "$tmpmfile"
+
+			read -r -i "y" -n1  -p "Do you want to use these metadata to rename the file (y/n/Q): " opt  < /dev/tty
+			case "$opt" in
+				y|Y ) echo "You chose yes, renaming the file..." ;;
+				n|N ) echo "You chose no, trying the next metadata source..."; continue ;;
+				q|Q ) echo "You chose to quit, returning to the main menu!";  break;;
+				* ) echo "Invalid choice '$opt', returning to the main menu!"; break;;
+			esac
+
+			if [[ -f "$metadata_path" ]]; then
+				echo "Removing old metadata file '$metadata_path'..."
+				$DRY_RUN || rm "$metadata_path"
+			fi
+
+			decho "Addding additional metadata to the end of the metadata file..."
+			echo "Old file path       : $old_path" >> "$tmpmfile"
+			echo "Metadata source     : ${fetch_source:-all}" >> "$tmpmfile"
+
+			if [[ "$isbn" == "" ]]; then
+				isbn="$(find_isbns < "$tmpmfile")"
+			fi
+			if [[ "$isbn" != "" ]]; then
+				echo "ISBN                : $isbn" >> "$tmpmfile"
+			fi
+
+			decho "Organizing '$cf_path' (with '$tmpmfile')..."
+			cf_path="$(move_or_link_ebook_file_and_metadata "$cf_folder" "$cf_path" "$tmpmfile")"
+			decho "New path is '$cf_path'! Reviewing the new file..."
+			review_file "$cf_path"
+			return 0
+		fi
+	done
+
+	decho "Removing temp file '$tmpmfile'..."
+	rm "$tmpmfile"
+
+	return 1
+}
+
 review_file() {
-	local cf_path="$1" metadata_path="$1.${OUTPUT_METADATA_EXTENSION}" opt
+	local cf_path="$1" metadata_path="$1.${OUTPUT_METADATA_EXTENSION}"
 	while ! header_and_check "$cf_path" "$metadata_path"; do
+		local opt
 		opt="$(get_option)"
 		echo "Chosen option: $opt"
 		case "$opt" in
 			[0-9])
 				if (( opt < ${#OUTPUT_FOLDERS[@]} )); then
-					move_file_meta "${OUTPUT_FOLDERS[$opt]}" "$cf_path" "$metadata_path"
+					move_or_link_file_and_maybe_meta "${OUTPUT_FOLDERS[$opt]}" "$cf_path" "$metadata_path"
 					return
 				else
 					echo "Invalid output path $opt!"
@@ -178,14 +250,14 @@ review_file() {
 				local new_path=""
 				read -r -e -i "$CUSTOM_MOVE_BASE_DIR" -p "Move the file to: " new_path  < /dev/tty
 				if [[ "$new_path" != "" ]]; then
-					move_file_meta "$new_path" "$cf_path" "$metadata_path"
+					move_or_link_file_and_maybe_meta "$new_path" "$cf_path" "$metadata_path"
 					return
 				else
 					echo "No path entered, ignoring!"
 				fi
 			;;
-			"r") reorganize_manually "$cf_path" && return ;;
-			"o") open_in_external_viewer "$cf_path" ;;
+			"r") reorganize_manually "$cf_path" "$metadata_path" && return ;;
+			"o") xdg-open "$1" >/dev/null 2>&1 & ;;
 			"l") open_with_less "$cf_path" ;;
 			"c")
 				if [[ -f "$metadata_path" ]]; then
@@ -211,7 +283,7 @@ review_file() {
 	done
 
 	# Quick mode was enabled and the file looked ok!
-	move_file_meta "${OUTPUT_FOLDERS[0]}" "$cf_path" "$metadata_path"
+	move_or_link_file_and_maybe_meta "${OUTPUT_FOLDERS[0]}" "$cf_path" "$metadata_path"
 }
 
 

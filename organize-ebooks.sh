@@ -8,7 +8,6 @@ DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 
 CORRUPTION_CHECK_ONLY=false
 ORGANIZE_WITHOUT_ISBN=false
-ORGANIZE_WITHOUT_ISBN_SOURCES="Goodreads,Amazon.com,Google" # Requires Calibre 2.84+, previous versions will search in all enabled sources in the GUI
 
 OUTPUT_FOLDER="$(pwd)"
 OUTPUT_FOLDER_SEPARATE_UNSURE=false
@@ -29,7 +28,6 @@ for arg in "$@"; do
 	case "$arg" in
 		-cco|--corruption-check-only) CORRUPTION_CHECK_ONLY=true ;;
 		-owi|--organize--without--isbn) ORGANIZE_WITHOUT_ISBN=true ;;
-		-owis=*|--organize--without--isbn-sources=*) ORGANIZE_WITHOUT_ISBN_SOURCES="${arg#*=}" ;;
 		-o=*|--output-folder=*)
 			OUTPUT_FOLDER="${arg#*=}"
 			if [[ "$OUTPUT_FOLDER_SEPARATE_UNSURE" == false ]]; then
@@ -65,16 +63,13 @@ skip_file() {
 # is found, writes it to a tmp .txt file and calls organize_known_ebook()
 # Arguments: path, isbns (coma-separated)
 organize_by_isbns() {
-	local file_path="$1" isbns="$2" isbn_sources
+	local file_path="$1" isbns="$2" isbn isbn_sources isbn_source tmpmfile new_path
 	IFS=, read -ra isbn_sources <<< "$ISBN_METADATA_FETCH_ORDER"
 
-	local isbn
 	for isbn in $(echo "$isbns" | tr "$ISBN_RET_SEPARATOR" '\n'); do
-		local tmpmfile
 		tmpmfile="$(mktemp --suffix='.txt')"
 		decho "Trying to fetch metadata for ISBN '$isbn' into temp file '$tmpmfile'..."
 
-		local isbn_source
 		for isbn_source in "${isbn_sources[@]:-}"; do
 			decho "Fetching metadata from ${isbn_source:-all sources}..."
 			if fetch_metadata "fetch-meta-${isbn_source:-all}" "${isbn_source:-}" --isbn="$isbn" > "$tmpmfile"; then
@@ -91,7 +86,8 @@ organize_by_isbns() {
 				} >> "$tmpmfile"
 
 				decho "Organizing '$file_path' (with '$tmpmfile')..."
-				move_or_link_ebook_file_and_metadata "$OUTPUT_FOLDER" "$file_path" "$tmpmfile"
+				new_path="$(move_or_link_ebook_file_and_metadata "$OUTPUT_FOLDER" "$file_path" "$tmpmfile")"
+				echo -e "${GREEN}OK${NC}:\t${file_path}\nTO:\t${new_path}\n"
 				return
 			fi
 		done
@@ -150,14 +146,15 @@ organize_by_filename_and_meta() {
 			echo "$ebookmeta" | sed -E 's/^(.+[^ ])   ([ ]+): /OF \1\2: /'
 		} >> "$tmpmfile"
 
-		local isbn
+		local isbn new_path
 		isbn="$(find_isbns < "$tmpmfile")"
 		if [[ "$isbn" != "" ]]; then
 			echo "ISBN                : $isbn" >> "$tmpmfile"
 		fi
 
 		decho "Organizing '$old_path' (with '$tmpmfile')..."
-		move_or_link_ebook_file_and_metadata "$OUTPUT_FOLDER_UNSURE" "$old_path" "$tmpmfile"
+		new_path="$(move_or_link_ebook_file_and_metadata "$OUTPUT_FOLDER_UNSURE" "$old_path" "$tmpmfile")"
+		echo -e "${GREEN}OK${NC}:\t${old_path}\nTO:\t${new_path}\n"
 	}
 
 	if [[ "${title//[^[:alpha:]]/}" != "" && "$title" != "Unknown" ]]; then
@@ -209,14 +206,7 @@ organize_file() {
 
 			fail_file "$file_path" "File is corrupt: $file_err" "$new_path"
 
-			$DRY_RUN && decho "(DRY RUN! All operations except metadata deletion are skipped!)"
-			if [[ "$SYMLINK_ONLY" == true ]]; then
-				decho "Symlinking file '$file_path' to '$new_path'..."
-				$DRY_RUN || ln -s "$(realpath "$file_path")" "$new_path"
-			else
-				decho "Moving file '$file_path' to '$new_path'..."
-				$DRY_RUN || mv --no-clobber "$file_path" "$new_path"
-			fi
+			move_or_link_file "$file_path" "$new_path"
 
 			local new_metadata_path="${new_path}.${OUTPUT_METADATA_EXTENSION}"
 			decho "Saving original filename to '$new_metadata_path'..."
