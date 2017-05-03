@@ -76,7 +76,7 @@ open_with_less() {
 	mimetype="$(file --brief --mime-type "$file_path")"
 	echo "Reading '$file_path' ($mimetype) with less..."
 	if [[ "$mimetype" =~ $ISBN_DIRECT_GREP_FILES ]]; then
-		less "$file_path"
+		less "$file_path" </dev/tty >/dev/tty
 		return
 	fi
 
@@ -86,10 +86,10 @@ open_with_less() {
 
 	local cresult
 	if cresult="$(convert_to_txt "$file_path" "$tmptxtfile" "$mimetype" 2>&1)"; then
-		less "$tmptxtfile"
+		less "$tmptxtfile" </dev/tty >/dev/tty
 	else
 		echo "Conversion failed!"
-		echo "$cresult" | less
+		echo "$cresult"
 	fi
 
 	decho "Removing tmp file '$tmptxtfile'..."
@@ -102,10 +102,10 @@ move_or_link_file_and_maybe_meta() {
 	new_path="$(unique_filename "${new_folder%/}" "$cf_name")"
 	new_metadata_path="$new_path.${OUTPUT_METADATA_EXTENSION}"
 
-	move_or_link_file "$cf_path" "$new_path"
+	move_or_link_file "$cf_path" "$new_path" 2>&1
 
 	if [[ -f "$metadata_path" ]]; then
-		move_or_link_file "$metadata_path" "$new_metadata_path"
+		move_or_link_file "$metadata_path" "$new_metadata_path" 2>&1
 	fi
 }
 
@@ -131,7 +131,7 @@ header_and_check() {
 	old_path="$(grep_meta_val "Old file path" < "$metadata_path")"
 	old_name="$(basename "$old_path")"
 
-	missing_words="$(echo "${old_name%.*}" | tokenize '\n' | { grep -ivE "^($cf_tokens)+\$${IGNORED_DIFFERENCES:+|^$IGNORED_DIFFERENCES\$}" || true; } | paste -sd '|')"
+	missing_words="$(echo "${old_name%.*}" | tokenize '\n' | { grep -ivE "^($cf_tokens)+\$${IGNORED_DIFFERENCES:+|^($IGNORED_DIFFERENCES)\$}" || true; } | paste -sd '|')"
 	old_name_hl="$(echo "$old_name" | cgrep '1;31' "$missing_words" | cgrep '1;32' "$cf_tokens" | cgrep '1;30' "$IGNORED_DIFFERENCES" )"
 	echo "Old	'$old_name_hl' (in '${old_path%/*}/')"
 
