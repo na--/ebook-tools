@@ -255,7 +255,7 @@ grep_meta_val() {
 # them with $1 (or ' ' if not specified)
 tokenize() {
 	local separator="${1:- }" dedup="${2:-true}" lenr="${3:-$TOKEN_MIN_LENGTH}"
-	grep -oE "[[:alpha:]]{${lenr},}|[[:digit:]]{${lenr},}" | to_lower | {
+	{ grep -oE "[[:alpha:]]{${lenr},}|[[:digit:]]{${lenr},}" || true; } | to_lower | {
 		if [[ "$dedup" == true ]]; then
 			uniq_no_sort
 		else
@@ -467,7 +467,7 @@ move_or_link_ebook_file_and_metadata() {
 	declare -A d=( ["EXT"]="${current_ebook_path##*.}" ) # metadata and the file extension
 
 	while IFS='' read -r line || [[ -n "$line" ]]; do
-		d["$(echo "${line%%:*}" | sed -e 's/[ \t]*$//' -e 's/ /_/g' -e 's/[^a-zA-Z0-9_]//g' -e 's/\(.*\)/\U\1/')"]="$(echo "${line#*: }" | sed -e 's/[\\/\*\?<>\|\x01-\x1F\x7F\x22\x24\x60]/_/g' | cut -c 1-110 )"
+		d["$(echo "${line%%:*}" | sed -e 's/[ \t]*$//' -e 's/ /_/g' -e 's/[^a-zA-Z0-9_]//g' -e 's/\(.*\)/\U\1/')"]="$(echo "${line#*: }" | sed -e 's/[\\/\*\?<>\|\x01-\x1F\x7F\x22\x24\x60]/_/g' | cut -c 1-100 )"
 	done < "$current_metadata_path"
 
 	decho "Variables that will be used for the new filename construction:"

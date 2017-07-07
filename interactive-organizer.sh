@@ -248,9 +248,12 @@ review_file() {
 			;;
 			"m")
 				local new_path=""
-				read -r -e -i "$CUSTOM_MOVE_BASE_DIR" -p "Move the file to: " new_path  < /dev/tty
+				read -e -i "$CUSTOM_MOVE_BASE_DIR" -p "Delete metadata if exists and move the file to: " new_path  < /dev/tty
 				if [[ "$new_path" != "" ]]; then
-					move_or_link_file_and_maybe_meta "$new_path" "$cf_path" "$metadata_path"
+					mv --no-clobber "$cf_path" "$new_path"
+					if [[ -f "$metadata_path" ]]; then
+						rm "$metadata_path"
+					fi
 					return
 				else
 					echo "No path entered, ignoring!"
