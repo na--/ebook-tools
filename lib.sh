@@ -14,14 +14,14 @@ DRY_RUN=false
 SYMLINK_ONLY=false
 DELETE_METADATA=false
 
-TESTED_ARCHIVE_EXTENSIONS='^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr)$'
+TESTED_ARCHIVE_EXTENSIONS='^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr|maff)$'
 
 # This regular expression should match most ISBN10/13-like sequences in
 # texts. To minimize false-positives, matches should be passed through
 # is_isbn_valid() or another ISBN validator
 ISBN_REGEX='(?<![0-9])(977|978|979)?+(([ –—-]?[0-9][ –—-]?){9}[0-9xX])(?![0-9-])'
 ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
-ISBN_IGNORED_FILES='^image/(png|jpeg|gif)|application/(x-shockwave-flash|CDFV2|vnd.ms-opentype|x-font-ttf|x-dosexec|msword|vnd.ms-excel|x-java-applet)|audio/.+$'
+ISBN_IGNORED_FILES='^image/(png|jpeg|gif)|application/(x-shockwave-flash|CDFV2|vnd.ms-opentype|x-font-ttf|x-dosexec|vnd.ms-excel|x-java-applet)|audio/.+$'
 ISBN_RET_SEPARATOR=","
 
 # These options specify if and how we should reoder ISBN_DIRECT_GREP files
@@ -321,11 +321,13 @@ check_file_for_corruption() {
 
 # Tries to convert the supplied ebook file into .txt. It uses calibre's
 # ebook-convert tool. For optimization, if present, it will use pdftotext
-# for pdfs.
+# for pdfs and catdoc for word files.
 # Arguments: input path, output path (shloud have .txt extension), mimetype
 convert_to_txt() {
 	if [[ "$3" == "application/pdf" ]] && command_exists pdftotext; then
 		pdftotext "$1" "$2"
+	elif [[ "$3" == "application/msword" ]] && command_exists catdoc; then
+		catdoc "$1" > "$2"
 	else
 		ebook-convert "$1" "$2"
 	fi
