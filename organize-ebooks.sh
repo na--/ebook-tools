@@ -16,8 +16,8 @@ OUTPUT_FOLDER_CORRUPT=
 OUTPUT_FOLDER_PAMPHLETS=
 
 PAMPHLET_MAX_PDF_PAGES=40
-PAMPHLET_MAX_FILESIZE_KB=300
-PAMPHLET_EXCLUDED_FILES='^.+\.(chm|epub|cbr|mobi|lit)$'
+PAMPHLET_MAX_FILESIZE_KB=250
+PAMPHLET_EXCLUDED_FILES='\.(chm|epub|cbr|mobi|lit|pdb)$'
 
 DEBUG_PREFIX_LENGTH=40
 
@@ -70,8 +70,41 @@ skip_file() {
 
 # Arguments: path
 is_pamphlet() {
-	decho "TODO: implement paphlet check"
-	return 0
+	local file_path="$1" lowercase_name
+
+	decho "Checking whether '$file_path' looks like a pamphlet..."
+
+	lowercase_name="$(basename "$file_path" | to_lower)"
+	if [[ "$lowercase_name" =~ $PAMPHLET_EXCLUDED_FILES ]]; then
+		local matches
+		matches="[$(echo "$lowercase_name" | grep -oE "$PAMPHLET_EXCLUDED_FILES" | paste -sd';')]"
+		decho "Parts of the filename match the pamphlet ignore regex: [$matches]"
+		return 1
+	else
+		decho "The file does not match the pamphlet ignore regex, continuing..."
+	fi
+
+	local mimetype filesize_kb pages
+	mimetype=$(file --brief --mime-type "$file_path")
+	filesize_kb=$(( $(stat -c '%s' "$file_path") / 1024 ))
+	if [[ "$mimetype" == "application/pdf" ]]; then
+		decho "The file looks like a pdf, checking if the number of pages is larger than $PAMPHLET_MAX_PDF_PAGES ..."
+		pages=$(pdfinfo "$file_path" | sed -n -E "s/^Pages:\s+([0-9]+)/\1/p")
+
+		if (( pages > PAMPHLET_MAX_PDF_PAGES )); then
+			decho "The file has $pages pages, too many for a pamphlet"
+			return 2
+		else
+			decho "The file has only $pages pages, looks like a pamphlet"
+			return 0
+		fi
+	elif (( filesize_kb < PAMPHLET_MAX_FILESIZE_KB )); then
+		decho "File has a type '$mimetype' and a small size ($filesize_kb KB), looks like a pamphlet"
+		return 0
+	else
+		decho "File has a type '$mimetype' and a large size ($filesize_kb KB), does NOT look like a pamphlet"
+		return 3
+	fi
 }
 
 
