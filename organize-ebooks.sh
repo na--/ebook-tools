@@ -13,6 +13,11 @@ OUTPUT_FOLDER="$(pwd)"
 OUTPUT_FOLDER_SEPARATE_UNSURE=false
 OUTPUT_FOLDER_UNSURE="$(pwd)"
 OUTPUT_FOLDER_CORRUPT=
+OUTPUT_FOLDER_PAMPHLETS=
+
+PAMPHLET_MAX_PDF_PAGES=40
+PAMPHLET_MAX_FILESIZE_KB=300
+PAMPHLET_EXCLUDED_FILES='^.+\.(chm|epub|cbr|mobi|lit)$'
 
 DEBUG_PREFIX_LENGTH=40
 
@@ -38,7 +43,8 @@ for arg in "$@"; do
 			OUTPUT_FOLDER_SEPARATE_UNSURE=true
 			OUTPUT_FOLDER_UNSURE="${arg#*=}"
 		;;
-		-oc=*|--output-folder-corrupt=*) OUTPUT_FOLDER_CORRUPT="${arg#*=}" ;;
+		-ofc=*|--output-folder-corrupt=*) OUTPUT_FOLDER_CORRUPT="${arg#*=}" ;;
+		-ofp=*|--output-folder-pamphlets=*) OUTPUT_FOLDER_PAMPHLETS="${arg#*=}" ;;
 		--debug-prefix-length=*) DEBUG_PREFIX_LENGTH="${arg#*=}" ;;
 		-h|--help) print_help; exit 1 ;;
 		-*|--*) handle_script_arg "$arg" ;;
@@ -54,8 +60,18 @@ fail_file() {
 	echo -e "${RED}ERR${NC}:\t$1\nREASON:\t$2\n${3+TO:\t$3\n}"
 }
 
+ok_file() {
+	echo -e "${GREEN}OK${NC}:\t${1}\nTO:\t${2}\n"
+}
+
 skip_file() {
 	echo -e "SKIP:\t$1\nREASON:\t$2\n"
+}
+
+# Arguments: path
+is_pamphlet() {
+	decho "TODO: implement paphlet check"
+	return 0
 }
 
 
@@ -87,7 +103,7 @@ organize_by_isbns() {
 
 				decho "Organizing '$file_path' (with '$tmpmfile')..."
 				new_path="$(move_or_link_ebook_file_and_metadata "$OUTPUT_FOLDER" "$file_path" "$tmpmfile")"
-				echo -e "${GREEN}OK${NC}:\t${file_path}\nTO:\t${new_path}\n"
+				ok_file "$file_path" "$new_path"
 				return
 			fi
 		done
@@ -105,7 +121,7 @@ organize_by_isbns() {
 	fi
 }
 
-# Arguments: filename, reason (optional)
+# Arguments: path, reason (optional)
 organize_by_filename_and_meta() {
 	local old_path="$1" prev_reason="${2:-}${2+; }"
 	decho "Organizing '$old_path' by non-ISBN metadata and filename..."
@@ -122,8 +138,25 @@ organize_by_filename_and_meta() {
 		decho "File does not match the ignore regex, continuing..."
 	fi
 
+	if is_pamphlet "$old_path"; then
+		decho "File '$old_path' looks like a pamphlet!"
+		if [[ "${OUTPUT_FOLDER_PAMPHLETS%/}" != "" ]]; then
+			local new_path
+			new_path="$(unique_filename "${OUTPUT_FOLDER_PAMPHLETS%/}/$(dirname "$old_path")" "$(basename "$old_path")")"
+
+			decho "Moving file '$old_path' to '$new_path'!"
+			ok_file "$old_path" "$new_path"
+
+			move_or_link_file "$old_path" "$new_path"
+		else
+			decho "Output folder for pamphlet files is not set, skipping..."
+			skip_file "$old_path" "No pamphlet folder"
+		fi
+		return
+	fi
+
 	local ebookmeta
-	ebookmeta="$(ebook-meta "$old_path" | grep -E '[a-zA-Z()]+ +: .*' )"
+	ebookmeta=$(ebook-meta "$old_path" | grep -E '[a-zA-Z()]+ +: .*')
 	decho "Ebook metadata:"
 	echo "$ebookmeta" | debug_prefixer "	" 0 --width=80 -t
 
@@ -149,7 +182,7 @@ organize_by_filename_and_meta() {
 
 		decho "Organizing '$old_path' (with '$tmpmfile')..."
 		new_path="$(move_or_link_ebook_file_and_metadata "$OUTPUT_FOLDER_UNSURE" "$old_path" "$tmpmfile")"
-		echo -e "${GREEN}OK${NC}:\t${old_path}\nTO:\t${new_path}\n"
+		ok_file "$old_path" "$new_path"
 	}
 
 	local filename
@@ -244,4 +277,3 @@ for fpath in "$@"; do
 		organize_file "$file_to_check" 2> >(debug_prefixer "[$file_to_check] " "$DEBUG_PREFIX_LENGTH")
 	done
 done
-

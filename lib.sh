@@ -450,9 +450,15 @@ search_file_for_isbns() {
 
 
 move_or_link_file() {
-	local current_path="$1" new_path="$2"
+	local current_path="$1" new_path="$2" new_folder="${2%/*}"
 
 	$DRY_RUN && decho "(DRY RUN! All operations except metadata deletion are skipped!)"
+	
+	if [[ ! -d "$new_folder" ]]; then
+		decho "Creating folder '$new_folder'"
+		$DRY_RUN || mkdir -p "$new_folder"
+	fi
+
 	if [[ "$SYMLINK_ONLY" == true ]]; then
 		decho "Symlinking file '$current_path' to '$new_path'..."
 		$DRY_RUN || ln -s "$(realpath "$current_path")" "$new_path"
