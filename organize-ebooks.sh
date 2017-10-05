@@ -10,8 +10,7 @@ CORRUPTION_CHECK_ONLY=false
 ORGANIZE_WITHOUT_ISBN=false
 
 OUTPUT_FOLDER="$(pwd)"
-OUTPUT_FOLDER_SEPARATE_UNSURE=false
-OUTPUT_FOLDER_UNSURE="$(pwd)"
+OUTPUT_FOLDER_UNCERTAIN=
 OUTPUT_FOLDER_CORRUPT=
 OUTPUT_FOLDER_PAMPHLETS=
 
@@ -33,16 +32,8 @@ for arg in "$@"; do
 	case "$arg" in
 		-cco|--corruption-check-only) CORRUPTION_CHECK_ONLY=true ;;
 		-owi|--organize--without--isbn) ORGANIZE_WITHOUT_ISBN=true ;;
-		-o=*|--output-folder=*)
-			OUTPUT_FOLDER="${arg#*=}"
-			if [[ "$OUTPUT_FOLDER_SEPARATE_UNSURE" == false ]]; then
-				OUTPUT_FOLDER_UNSURE="${arg#*=}"
-			fi
-		;;
-		-ou=*|--output-folder-unsure=*)
-			OUTPUT_FOLDER_SEPARATE_UNSURE=true
-			OUTPUT_FOLDER_UNSURE="${arg#*=}"
-		;;
+		-o=*|--output-folder=*) OUTPUT_FOLDER="${arg#*=}" ;;
+		-ofu=*|--output-folder-uncertain=*) OUTPUT_FOLDER_UNCERTAIN="${arg#*=}" ;;
 		-ofc=*|--output-folder-corrupt=*) OUTPUT_FOLDER_CORRUPT="${arg#*=}" ;;
 		-ofp=*|--output-folder-pamphlets=*) OUTPUT_FOLDER_PAMPHLETS="${arg#*=}" ;;
 		--debug-prefix-length=*) DEBUG_PREFIX_LENGTH="${arg#*=}" ;;
@@ -183,8 +174,14 @@ organize_by_filename_and_meta() {
 			move_or_link_file "$old_path" "$new_path"
 		else
 			decho "Output folder for pamphlet files is not set, skipping..."
-			skip_file "$old_path" "No pamphlet folder"
+			skip_file "$old_path" "No pamphlet folder specified"
 		fi
+		return
+	fi
+
+	if [[ "${OUTPUT_FOLDER_UNCERTAIN%/}" == "" ]]; then
+		decho "No uncertain folder specified, skipping..."
+		skip_file "$old_path" "No uncertain folder specified"
 		return
 	fi
 
@@ -214,7 +211,7 @@ organize_by_filename_and_meta() {
 		fi
 
 		decho "Organizing '$old_path' (with '$tmpmfile')..."
-		new_path="$(move_or_link_ebook_file_and_metadata "$OUTPUT_FOLDER_UNSURE" "$old_path" "$tmpmfile")"
+		new_path="$(move_or_link_ebook_file_and_metadata "$OUTPUT_FOLDER_UNCERTAIN" "$old_path" "$tmpmfile")"
 		ok_file "$old_path" "$new_path"
 	}
 
