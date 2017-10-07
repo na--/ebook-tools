@@ -39,13 +39,10 @@ ISBN_METADATA_FETCH_ORDER="Goodreads,Amazon.com,Google,ISBNDB,WorldCat xISBN,OZO
 ORGANIZE_WITHOUT_ISBN_SOURCES="Goodreads,Amazon.com,Google"
 
 # Should be matched against a lowercase filename.ext, lines that start with #
-# and newlines are removed. The default value should filter out most
-# periodicals and images
+# and newlines are removed. The default value should filter out most periodicals
 WITHOUT_ISBN_IGNORE="$(echo '
-# Images:
-\.(png|jpg|jpeg|gif|bmp)$
 # Perdiodicals with filenames that contain something like 2010-11, 199010, 2015_7, 20110203:
-|(^|[^0-9])(19|20)[0-9][0-9][ _\.-]*(0?[1-9]|10|11|12)([0-9][0-9])?($|[^0-9])
+(^|[^0-9])(19|20)[0-9][0-9][ _\.-]*(0?[1-9]|10|11|12)([0-9][0-9])?($|[^0-9])
 # Periodicals with month numbers before the year
 |(^|[^0-9])([0-9][0-9])?(0?[1-9]|10|11|12)[ _\.-]*(19|20)[0-9][0-9]($|[^0-9])
 # Periodicals with months or issues
@@ -453,7 +450,7 @@ move_or_link_file() {
 	local current_path="$1" new_path="$2" new_folder="${2%/*}"
 
 	$DRY_RUN && decho "(DRY RUN! All operations except metadata deletion are skipped!)"
-	
+
 	if [[ ! -d "$new_folder" ]]; then
 		decho "Creating folder '$new_folder'"
 		$DRY_RUN || mkdir -p "$new_folder"

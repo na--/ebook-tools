@@ -14,9 +14,10 @@ OUTPUT_FOLDER_UNCERTAIN=
 OUTPUT_FOLDER_CORRUPT=
 OUTPUT_FOLDER_PAMPHLETS=
 
-PAMPHLET_MAX_PDF_PAGES=40
-PAMPHLET_MAX_FILESIZE_KB=250
+PAMPHLET_INCLUDED_FILES='\.(png|jpg|jpeg|gif|bmp|svg|csv|pptx?)$'
 PAMPHLET_EXCLUDED_FILES='\.(chm|epub|cbr|mobi|lit|pdb)$'
+PAMPHLET_MAX_PDF_PAGES=50
+PAMPHLET_MAX_FILESIZE_KB=250
 
 DEBUG_PREFIX_LENGTH=40
 
@@ -64,16 +65,19 @@ is_pamphlet() {
 	local file_path="$1" lowercase_name
 
 	decho "Checking whether '$file_path' looks like a pamphlet..."
-
 	lowercase_name="$(basename "$file_path" | to_lower)"
-	if [[ "$lowercase_name" =~ $PAMPHLET_EXCLUDED_FILES ]]; then
-		local matches
-		matches="[$(echo "$lowercase_name" | grep -oE "$PAMPHLET_EXCLUDED_FILES" | paste -sd';')]"
-		decho "Parts of the filename match the pamphlet ignore regex: [$matches]"
-		return 1
-	else
-		decho "The file does not match the pamphlet ignore regex, continuing..."
+
+	if [[ "$lowercase_name" =~ $PAMPHLET_INCLUDED_FILES ]]; then
+		decho "Parts of the filename match the pamphlet include regex: [$(echo "$lowercase_name" | grep -oE "$PAMPHLET_INCLUDED_FILES" | paste -sd';')]"
+		return 0
 	fi
+	decho "The file does not match the pamphlet include regex, continuing..."
+
+	if [[ "$lowercase_name" =~ $PAMPHLET_EXCLUDED_FILES ]]; then
+		decho "Parts of the filename match the pamphlet ignore regex: [$(echo "$lowercase_name" | grep -oE "$PAMPHLET_EXCLUDED_FILES" | paste -sd';')]"
+		return 1
+	fi
+	decho "The file does not match the pamphlet exclude regex, continuing..."
 
 	local mimetype filesize_kb pages
 	mimetype=$(file --brief --mime-type "$file_path")
