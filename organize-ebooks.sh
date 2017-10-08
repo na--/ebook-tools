@@ -219,17 +219,9 @@ organize_by_filename_and_meta() {
 		ok_file "$old_path" "$new_path"
 	}
 
-	local filename
-	filename="$(basename "${old_path%.*}" | tokenize)"
-	decho "Trying to fetch metadata only the filename '$filename'..."
-	if fetch_metadata "fetch-meta-filename" "$ORGANIZE_WITHOUT_ISBN_SOURCES" --title="$filename" > "$tmpmfile"; then
-		finisher "filename"
-		return
-	fi
-
 	local title author
 	title="$(echo "$ebookmeta" | grep_meta_val "Title" | tokenize ' ' false)"
-	author="$(echo "$ebookmeta" | grep_meta_val "Author" | sed -e 's/ & .*//' | tokenize ' ' true 1)"
+	author="$(echo "$ebookmeta" | grep_meta_val "Author" | sed -e 's/ & .*//' | tokenize ' ' true)"
 	decho "Extracted title '$title' and author '$author'"
 	if [[ "${title//[^[:alpha:]]/}" != "" && "$title" != "unknown" ]]; then
 		decho "There is a relatively normal-looking title, searching for metadata..."
@@ -252,6 +244,14 @@ organize_by_filename_and_meta() {
 			finisher "title"
 			return
 		fi
+	fi
+
+	local filename
+	filename="$(basename "${old_path%.*}" | tokenize)"
+	decho "Trying to fetch metadata only the filename '$filename'..."
+	if fetch_metadata "fetch-meta-filename" "$ORGANIZE_WITHOUT_ISBN_SOURCES" --title="$filename" > "$tmpmfile"; then
+		finisher "filename"
+		return
 	fi
 
 	decho "Could not find anything, removing the temp file '$tmpmfile'..."
