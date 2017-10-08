@@ -50,11 +50,10 @@ WITHOUT_ISBN_IGNORE="$(echo '
 # Periodicals with seasons and years
 |((spr(ing)?|sum(mer)?|aut(umn)?|win(ter)?|fall)[ _\.-]*(19|20)[0-9][0-9])
 |((19|20)[0-9][0-9][ _\.-]*(spr(ing)?|sum(mer)?|aut(umn)?|win(ter)?|fall))
-# TODO: include words like monthly, vol(ume)?
 ' | grep -v '^#' | tr -d '\n')"
 
 TOKEN_MIN_LENGTH=3
-TOKENS_TO_IGNORE='ebook|book|novel|series'
+TOKENS_TO_IGNORE='ebook|book|novel|series|ed(ition)?|vol(ume)?|(19|20)[0-9][0-9]'
 
 #shellcheck disable=SC2016
 OUTPUT_FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]+ (${d[PUBLISHED]%%-*})}${d[ISBN]+ [${d[ISBN]}]}.${d[EXT]}"'
