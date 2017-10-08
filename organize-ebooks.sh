@@ -153,10 +153,9 @@ organize_by_isbns() {
 organize_by_filename_and_meta() {
 	local old_path="$1" prev_reason="${2:-}${2+; }"
 	decho "Organizing '$old_path' by non-ISBN metadata and filename..."
-
 	local lowercase_name
 	lowercase_name="$(basename "$old_path" | to_lower)"
-	if [[ "$lowercase_name" =~ $WITHOUT_ISBN_IGNORE ]]; then
+	if [[ "$WITHOUT_ISBN_IGNORE" != "" && "$lowercase_name" =~ $WITHOUT_ISBN_IGNORE ]]; then
 		local matches
 		matches="[$(echo "$lowercase_name" | grep -oE "$WITHOUT_ISBN_IGNORE" | paste -sd';')]"
 		decho "Parts of the filename match the ignore regex: [$matches]"
