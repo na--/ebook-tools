@@ -10,9 +10,9 @@ OUTPUT_FOLDERS=()
 
 QUICK_MODE=false
 CUSTOM_MOVE_BASE_DIR=""
+RESTORE_ORIGINAL_BASE_DIR=""
 
 VERBOSE=true
-
 
 print_help() {
 	echo "Interactive eBook organizer v$VERSION"
@@ -27,6 +27,7 @@ for arg in "$@"; do
 		-qm|--quick-mode) QUICK_MODE=true ;;
 		-o=*|--output-folder=*) OUTPUT_FOLDERS+=("${arg#*=}") ;;
 		-cmbd=*|--custom-move-base-dir=*) CUSTOM_MOVE_BASE_DIR="${arg#*=}" ;;
+		-robd=*|--restore-original-base-dir=*) RESTORE_ORIGINAL_BASE_DIR="${arg#*=}" ;;
 		-h|--help) print_help; exit 1 ;;
 		-*|--*) handle_script_arg "$arg" ;;
 		*) break ;;
@@ -37,19 +38,31 @@ unset -v arg
 if [[ "$#" == "0" ]]; then print_help; exit 2; fi
 
 
+get_old_path() {
+	local cf_path="$1" metadata_path="$2" old_path
+	if [[ -f "$metadata_path" ]]; then
+		old_path="$(grep_meta_val "Old file path" < "$metadata_path")"
+	fi
+	echo "${old_path:-$cf_path}"
+}
+
 get_option() {
-	local i choice
+	local i choice old_path="$1"
 
 	decho "Possible actions: "
 	for i in "${!OUTPUT_FOLDERS[@]}"; do
-
 		if [[ "$i" == "0" ]]; then
 			decho -ne " ${BOLD}$i/spb${NC})	"
 		else
 			decho -ne " ${BOLD}$i${NC})	"
 		fi
-		decho "Move file to '${OUTPUT_FOLDERS[$i]}'"
+		decho "Move file and metadata to '${OUTPUT_FOLDERS[$i]}'"
 	done
+
+	if [[ "$RESTORE_ORIGINAL_BASE_DIR" != "" ]]; then
+		decho -e " ${BOLD}b${NC})	Restore original file without metadata to '${RESTORE_ORIGINAL_BASE_DIR%/}/$old_path'"
+	fi
+
 	decho -e " ${BOLD}m/tab${NC})	Move to another folder		| ${BOLD}r/bs${NC})	Reorganize file manually"
 	decho -e " ${BOLD}o/ent${NC})	Open file in external viewer	| ${BOLD}l${NC})	Read in terminal"
 	decho -e " ${BOLD}c${NC})	Read the saved metadata file	| ${BOLD}?${NC})	Run ebook-meta on the file"
@@ -124,10 +137,9 @@ header_and_check() {
 	echo -e " ${BOLD}[has metadata]${NC}"
 
 	local cf_tokens old_path old_name old_name_hl missing_words
-
-	cf_tokens="$(echo "${cf_name%.*}" | tokenize '|')"
-	old_path="$(grep_meta_val "Old file path" < "$metadata_path")"
-	old_name="$(basename "$old_path")"
+	cf_tokens=$(echo "${cf_name%.*}" | tokenize '|')
+	old_path=$(get_old_path "$cf_path" "$metadata_path")
+	old_name=$(basename "$old_path")
 
 	missing_words="$(echo "${old_name%.*}" | tokenize '\n' | { grep -ivE "^($cf_tokens)+\$" || true; } | paste -sd '|')"
 	old_name_hl="$(echo "$old_name" | cgrep '1;31' "$missing_words" | cgrep '1;32' "$cf_tokens" | cgrep '1;30' "$TOKENS_TO_IGNORE" )"
@@ -148,10 +160,7 @@ header_and_check() {
 
 reorganize_manually() {
 	local cf_path="$1" metadata_path="$1.${OUTPUT_METADATA_EXTENSION}" cf_folder="${1%/*}" old_path="" opt
-	if [[ -f "$metadata_path" ]]; then
-		old_path="$(grep_meta_val "Old file path" < "$metadata_path")"
-	fi
-	old_path="${old_path:-$cf_path}"
+	old_path=$(get_old_path "$cf_path" "$metadata_path")
 
 	read -r -e -i "$(basename "$old_path")" -p "Enter search terms or 'new filename': " opt  < /dev/tty
 	echo "Your choice: $opt"
@@ -232,8 +241,9 @@ reorganize_manually() {
 review_file() {
 	local cf_path="$1" metadata_path="$1.${OUTPUT_METADATA_EXTENSION}"
 	while ! header_and_check "$cf_path" "$metadata_path"; do
-		local opt
-		opt="$(get_option)"
+		local opt old_path
+		old_path=$(get_old_path "$cf_path" "$metadata_path")
+		opt=$(get_option "$old_path")
 		echo "Chosen option: $opt"
 		case "$opt" in
 			[0-9])
@@ -244,13 +254,19 @@ review_file() {
 					echo "Invalid output path $opt!"
 				fi
 			;;
-			"m")
-				local new_path=""
-				read -e -i "$CUSTOM_MOVE_BASE_DIR" -p "Delete metadata if exists and move the file to: " new_path  < /dev/tty
+			"m"|"b")
+				local new_path_default="" new_path=""
+				if [[ "$opt" == "m" ]]; then
+					new_path_default="${CUSTOM_MOVE_BASE_DIR%/}/"
+				else
+					new_path_default="${RESTORE_ORIGINAL_BASE_DIR%/}/$old_path"
+				fi
+				read -r -e -i "$new_path_default" -p "Delete metadata if exists and move the file to: " new_path  < /dev/tty
 				if [[ "$new_path" != "" ]]; then
-					mv --no-clobber "$cf_path" "$new_path"
+					$DRY_RUN || mkdir -p "${new_path%/*}"
+					$DRY_RUN || mv --no-clobber "$cf_path" "$new_path"
 					if [[ -f "$metadata_path" ]]; then
-						rm "$metadata_path"
+						$DRY_RUN || rm "$metadata_path"
 					fi
 					return
 				else
