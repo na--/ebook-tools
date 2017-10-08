@@ -54,6 +54,7 @@ WITHOUT_ISBN_IGNORE="$(echo '
 ' | grep -v '^#' | tr -d '\n')"
 
 TOKEN_MIN_LENGTH=3
+TOKENS_TO_IGNORE='ebook|book|novel|series'
 
 #shellcheck disable=SC2016
 OUTPUT_FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]+ (${d[PUBLISHED]%%-*})}${d[ISBN]+ [${d[ISBN]}]}.${d[EXT]}"'
@@ -86,6 +87,7 @@ handle_script_arg() {
 		;;
 
 		--token-min-length=*) TOKEN_MIN_LENGTH="${arg#*=}" ;;
+		--tokens-to-ignore=*) TOKENS_TO_IGNORE="${arg#*=}" ;;
 
 		-mfo=*|--metadata-fetch-order=*) ISBN_METADATA_FETCH_ORDER="${arg#*=}" ;;
 		-owis=*|--organize--without--isbn-sources=*) ORGANIZE_WITHOUT_ISBN_SOURCES="${arg#*=}" ;;
@@ -251,10 +253,17 @@ grep_meta_val() {
 # deduplicates them (if $2 is true or not specified) and finally concatenates
 # them with $1 (or ' ' if not specified)
 tokenize() {
-	local separator="${1:- }" dedup="${2:-true}" lenr="${3:-$TOKEN_MIN_LENGTH}"
+	local separator="${1:- }" dedup="${2:-true}"
+	local lenr="${3:-$TOKEN_MIN_LENGTH}" tokens_to_ignore="${4:-$TOKENS_TO_IGNORE}"
 	{ grep -oE "[[:alpha:]]{${lenr},}|[[:digit:]]{${lenr},}" || true; } | to_lower | {
 		if [[ "$dedup" == true ]]; then
 			uniq_no_sort
+		else
+			cat
+		fi
+	} | {
+		if [[ "$tokens_to_ignore" != "" ]]; then
+			grep -ivE "^($tokens_to_ignore)\$"
 		else
 			cat
 		fi

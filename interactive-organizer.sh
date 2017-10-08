@@ -9,7 +9,6 @@ DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 OUTPUT_FOLDERS=()
 
 QUICK_MODE=false
-IGNORED_DIFFERENCES=""
 CUSTOM_MOVE_BASE_DIR=""
 
 VERBOSE=true
@@ -27,7 +26,6 @@ for arg in "$@"; do
 	case $arg in
 		-qm|--quick-mode) QUICK_MODE=true ;;
 		-o=*|--output-folder=*) OUTPUT_FOLDERS+=("${arg#*=}") ;;
-		-id=*|--ignored-differences=*) IGNORED_DIFFERENCES="${arg#*=}" ;;
 		-cmbd=*|--custom-move-base-dir=*) CUSTOM_MOVE_BASE_DIR="${arg#*=}" ;;
 		-h|--help) print_help; exit 1 ;;
 		-*|--*) handle_script_arg "$arg" ;;
@@ -131,8 +129,8 @@ header_and_check() {
 	old_path="$(grep_meta_val "Old file path" < "$metadata_path")"
 	old_name="$(basename "$old_path")"
 
-	missing_words="$(echo "${old_name%.*}" | tokenize '\n' | { grep -ivE "^($cf_tokens)+\$${IGNORED_DIFFERENCES:+|^($IGNORED_DIFFERENCES)\$}" || true; } | paste -sd '|')"
-	old_name_hl="$(echo "$old_name" | cgrep '1;31' "$missing_words" | cgrep '1;32' "$cf_tokens" | cgrep '1;30' "$IGNORED_DIFFERENCES" )"
+	missing_words="$(echo "${old_name%.*}" | tokenize '\n' | { grep -ivE "^($cf_tokens)+\$" || true; } | paste -sd '|')"
+	old_name_hl="$(echo "$old_name" | cgrep '1;31' "$missing_words" | cgrep '1;32' "$cf_tokens" | cgrep '1;30' "$TOKENS_TO_IGNORE" )"
 	echo "Old	'$old_name_hl' (in '${old_path%/*}/')"
 
 	if [[ "$missing_words" != "" ]]; then
@@ -272,7 +270,7 @@ review_file() {
 			"?") ebook-meta "$cf_path" | debug_prefixer " " 8 --width=80 -t ;;
 			"e")
 				local evals=""
-				read -r -e -i "IGNORED_DIFFERENCES='$IGNORED_DIFFERENCES'" -p "Evaluate: " evals  < /dev/tty
+				read -r -e -i "TOKENS_TO_IGNORE='$TOKENS_TO_IGNORE'" -p "Evaluate: " evals  < /dev/tty
 				if [[ "$evals" != "" ]]; then
 					eval "$evals"
 				fi
