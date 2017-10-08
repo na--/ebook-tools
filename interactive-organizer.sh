@@ -60,23 +60,24 @@ get_option() {
 	done
 
 	if [[ "$RESTORE_ORIGINAL_BASE_DIR" != "" ]]; then
-		decho -e " ${BOLD}b${NC})	Restore original file without metadata to '${RESTORE_ORIGINAL_BASE_DIR%/}/$old_path'"
+		decho -e " ${BOLD}r${NC})	Restore file with original path to '${RESTORE_ORIGINAL_BASE_DIR%/}/$old_path' and delete metadata"
 	fi
 
-	decho -e " ${BOLD}m/tab${NC})	Move to another folder		| ${BOLD}r/bs${NC})	Reorganize file manually"
-	decho -e " ${BOLD}o/ent${NC})	Open file in external viewer	| ${BOLD}l${NC})	Read in terminal"
-	decho -e " ${BOLD}c${NC})	Read the saved metadata file	| ${BOLD}?${NC})	Run ebook-meta on the file"
-	decho -e " ${BOLD}t/\`${NC})	Run shell in terminal		| ${BOLD}e${NC})	Eval code (change env vars)"
-	decho -e " ${BOLD}s${NC})	Skip file			| ${BOLD}q${NC}) 	Quit"
+	decho -e " ${BOLD}m/tab${NC})	Move to another folder		| ${BOLD}i/bs${NC})	 Interactively reorganize the file"
+	decho -e " ${BOLD}o/ent${NC})	Open file in external viewer	| ${BOLD}l${NC})	 Read in terminal"
+	decho -e " ${BOLD}c${NC})	Read the saved metadata file	| ${BOLD}?${NC})	 Run ebook-meta on the file"
+	decho -e " ${BOLD}t/\`${NC})	Run shell in terminal		| ${BOLD}e${NC})	 Eval code (change env vars)"
+	decho -e " ${BOLD}s${NC})	Skip file			| ${BOLD}q/esc${NC}) Quit"
 
 	IFS= read -r -s -n1 choice < /dev/tty
 	#decho "Character code: $(printf '%02d' "'$choice")" #'
 	case "$(printf '%02d' "'$choice")" in #'
-		"08"|"127") echo -n "r" ;;	# backspace
+		"08"|"127") echo -n "i" ;;	# backspace
 		"09") echo -n "m" ;;	# horizontal tab
 		"32") echo -n "0" ;;	# space
 		"00") echo -n "o" ;;	# null (for newline)
 		"96") echo -n "t" ;;	# backtick
+		"27") echo -n "q" ;;	# escape
 		*) echo -n "$choice" ;;	# everything else'
 	esac
 }
@@ -158,7 +159,7 @@ header_and_check() {
 }
 
 
-reorganize_manually() {
+reorganize_interactively() {
 	local cf_path="$1" metadata_path="$1.${OUTPUT_METADATA_EXTENSION}" cf_folder="${1%/*}" old_path="" opt
 	old_path=$(get_old_path "$cf_path" "$metadata_path")
 
@@ -254,7 +255,7 @@ review_file() {
 					echo "Invalid output path $opt!"
 				fi
 			;;
-			"m"|"b")
+			"m"|"r")
 				local new_path_default="" new_path=""
 				if [[ "$opt" == "m" ]]; then
 					new_path_default="${CUSTOM_MOVE_BASE_DIR%/}/"
@@ -273,7 +274,7 @@ review_file() {
 					echo "No path entered, ignoring!"
 				fi
 			;;
-			"r") reorganize_manually "$cf_path" "$metadata_path" && return ;;
+			"i") reorganize_interactively "$cf_path" "$metadata_path" && return ;;
 			"o") xdg-open "$1" >/dev/null 2>&1 & ;;
 			"l") open_with_less "$cf_path" ;;
 			"c")
