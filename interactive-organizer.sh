@@ -12,6 +12,10 @@ QUICK_MODE=false
 CUSTOM_MOVE_BASE_DIR=""
 RESTORE_ORIGINAL_BASE_DIR=""
 
+# Letters for which diacritic differences will be ignored
+# https://en.wikipedia.org/wiki/Diacritic
+ALLOWED_DIACRITIC_DIFFERENCES="aeioucnsz"
+
 VERBOSE=true
 
 print_help() {
@@ -28,6 +32,7 @@ for arg in "$@"; do
 		-o=*|--output-folder=*) OUTPUT_FOLDERS+=("${arg#*=}") ;;
 		-cmbd=*|--custom-move-base-dir=*) CUSTOM_MOVE_BASE_DIR="${arg#*=}" ;;
 		-robd=*|--restore-original-base-dir=*) RESTORE_ORIGINAL_BASE_DIR="${arg#*=}" ;;
+		-add=*|--allowed-diacritic-differences=*) ALLOWED_DIACRITIC_DIFFERENCES="${arg#*=}" ;;
 		-h|--help) print_help; exit 1 ;;
 		-*|--*) handle_script_arg "$arg" ;;
 		*) break ;;
@@ -139,6 +144,11 @@ header_and_check() {
 
 	local cf_tokens old_path old_name old_name_hl missing_words
 	cf_tokens=$(echo "${cf_name%.*}" | tokenize '|')
+	if [[ "$ALLOWED_DIACRITIC_DIFFERENCES" != "" ]]; then
+		# From https://stackoverflow.com/questions/20937864/how-to-do-an-accent-insensitive-grep
+		cf_tokens=$(echo "$cf_tokens" | sed -E "s/([$(echo "$ALLOWED_DIACRITIC_DIFFERENCES" | sed -E "s/(.)/[=\1=]/g")])/[[=\1=]]/g")
+	fi
+
 	old_path=$(get_old_path "$cf_path" "$metadata_path")
 	old_name=$(basename "$old_path")
 
