@@ -12,9 +12,10 @@ QUICK_MODE=false
 CUSTOM_MOVE_BASE_DIR=""
 RESTORE_ORIGINAL_BASE_DIR=""
 
-# Letters for which diacritic differences will be ignored
-# https://en.wikipedia.org/wiki/Diacritic
-ALLOWED_DIACRITIC_DIFFERENCES="aeioucnsz"
+# GNU sed extended expressions that aim to mask differences between the old and
+# new book filenames due to diacritics and special characters. The default
+# value is set below  the script argument parser.
+DIACRITIC_DIFFERENCE_MASKINGS=()
 
 VERBOSE=true
 
@@ -32,7 +33,7 @@ for arg in "$@"; do
 		-o=*|--output-folder=*) OUTPUT_FOLDERS+=("${arg#*=}") ;;
 		-cmbd=*|--custom-move-base-dir=*) CUSTOM_MOVE_BASE_DIR="${arg#*=}" ;;
 		-robd=*|--restore-original-base-dir=*) RESTORE_ORIGINAL_BASE_DIR="${arg#*=}" ;;
-		-add=*|--allowed-diacritic-differences=*) ALLOWED_DIACRITIC_DIFFERENCES="${arg#*=}" ;;
+		-ddm=*|--diacritic-difference-masking=*) DIACRITIC_DIFFERENCE_MASKINGS+=("${arg#*=}") ;;
 		-h|--help) print_help; exit 1 ;;
 		-*|--*) handle_script_arg "$arg" ;;
 		*) break ;;
@@ -41,6 +42,19 @@ for arg in "$@"; do
 done
 unset -v arg
 if [[ "$#" == "0" ]]; then print_help; exit 2; fi
+
+# Set the default sed expressions to mask differences due to diacritical marks
+# and special characters. More info:
+# https://en.wikipedia.org/wiki/Diacritic
+# https://en.wikipedia.org/wiki/English_terms_with_diacritical_marks
+# https://stackoverflow.com/questions/20937864/how-to-do-an-accent-insensitive-grep
+if (( ${#DIACRITIC_DIFFERENCE_MASKINGS[@]} == 0 )); then
+	DIACRITIC_DIFFERENCE_MASKINGS=(
+		's/(ae|æ)/(ae|æ)/g'
+		's/(ss|ß)/(ss|ß)/g'
+		's/([[=a=][=e=][=i=][=o=][=u=][=c=][=n=][=s=][=z=]])/[[=\1=]]/g'
+	)
+fi
 
 
 get_old_path() {
@@ -142,12 +156,13 @@ header_and_check() {
 	fi
 	echo -e " ${BOLD}[has metadata]${NC}"
 
-	local cf_tokens old_path old_name old_name_hl missing_words
-	cf_tokens=$(echo "${cf_name%.*}" | tokenize '|')
-	if [[ "$ALLOWED_DIACRITIC_DIFFERENCES" != "" ]]; then
-		# From https://stackoverflow.com/questions/20937864/how-to-do-an-accent-insensitive-grep
-		cf_tokens=$(echo "$cf_tokens" | sed -E "s/([$(echo "$ALLOWED_DIACRITIC_DIFFERENCES" | sed -E "s/(.)/[=\1=]/g")])/[[=\1=]]/g")
-	fi
+	local cf_tokens old_path old_name old_name_hl missing_words sed_expr sed_exprs=()
+
+	for sed_expr in "${DIACRITIC_DIFFERENCE_MASKINGS[@]:-}"; do
+		sed_exprs+=("${sed_expr:+--expression=$sed_expr}")
+	done
+
+	cf_tokens=$(echo "${cf_name%.*}" | tokenize '|' | sed -E "${sed_exprs[@]}")
 
 	old_path=$(get_old_path "$cf_path" "$metadata_path")
 	old_name=$(basename "$old_path")
