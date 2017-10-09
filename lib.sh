@@ -262,7 +262,7 @@ tokenize() {
 		fi
 	} | {
 		if [[ "$tokens_to_ignore" != "" ]]; then
-			grep -ivE "^($tokens_to_ignore)\$"
+			grep -ivE "^($tokens_to_ignore)\$" || true
 		else
 			cat
 		fi

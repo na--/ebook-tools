@@ -60,7 +60,7 @@ get_option() {
 	done
 
 	if [[ "$RESTORE_ORIGINAL_BASE_DIR" != "" ]]; then
-		decho -e " ${BOLD}r${NC})	Restore file with original path to '${RESTORE_ORIGINAL_BASE_DIR%/}/$old_path' and delete metadata"
+		decho -e " ${BOLD}r${NC})	Restore file with original path to '${RESTORE_ORIGINAL_BASE_DIR%/}/${old_path#./}' and delete metadata"
 	fi
 
 	decho -e " ${BOLD}m/tab${NC})	Move to another folder		| ${BOLD}i/bs${NC})	 Interactively reorganize the file"
@@ -260,7 +260,7 @@ review_file() {
 				if [[ "$opt" == "m" ]]; then
 					new_path_default="${CUSTOM_MOVE_BASE_DIR%/}/"
 				else
-					new_path_default="${RESTORE_ORIGINAL_BASE_DIR%/}/$old_path"
+					new_path_default="${RESTORE_ORIGINAL_BASE_DIR%/}/${old_path#./}"
 				fi
 				read -r -e -i "$new_path_default" -p "Delete metadata if exists and move the file to: " new_path  < /dev/tty
 				if [[ "$new_path" != "" ]]; then
