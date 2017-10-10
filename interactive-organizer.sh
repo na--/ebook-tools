@@ -17,6 +17,7 @@ RESTORE_ORIGINAL_BASE_DIR=""
 # value is set below  the script argument parser.
 DIACRITIC_DIFFERENCE_MASKINGS=()
 
+MATCH_PARTIAL_WORDS=false
 VERBOSE=true
 
 print_help() {
@@ -34,6 +35,7 @@ for arg in "$@"; do
 		-cmbd=*|--custom-move-base-dir=*) CUSTOM_MOVE_BASE_DIR="${arg#*=}" ;;
 		-robd=*|--restore-original-base-dir=*) RESTORE_ORIGINAL_BASE_DIR="${arg#*=}" ;;
 		-ddm=*|--diacritic-difference-masking=*) DIACRITIC_DIFFERENCE_MASKINGS+=("${arg#*=}") ;;
+		-mpw|--match-partial-words) MATCH_PARTIAL_WORDS=true ;;
 		-h|--help) print_help; exit 1 ;;
 		-*|--*) handle_script_arg "$arg" ;;
 		*) break ;;
@@ -141,7 +143,7 @@ move_or_link_file_and_maybe_meta() {
 }
 
 cgrep() {
-	GREP_COLOR="$1" grep --color=always -iE "^|$2"
+	GREP_COLOR="$1" grep --color=always -iE "^|${2:-^}"
 }
 
 header_and_check() {
@@ -156,23 +158,39 @@ header_and_check() {
 	fi
 	echo -e " ${BOLD}[has metadata]${NC}"
 
-	local cf_tokens old_path old_name old_name_hl missing_words sed_expr sed_exprs=()
-
+	local cf_tokens masked_cf_tokens sed_expr sed_exprs=()
 	for sed_expr in "${DIACRITIC_DIFFERENCE_MASKINGS[@]:-}"; do
 		sed_exprs+=("${sed_expr:+--expression=$sed_expr}")
 	done
+	cf_tokens=$(echo "${cf_name%.*}" | tokenize $'\n')
+	masked_cf_tokens=$(echo "$cf_tokens" | stream_concat '|' | sed -E "${sed_exprs[@]}")
 
-	cf_tokens=$(echo "${cf_name%.*}" | tokenize '|' | sed -E "${sed_exprs[@]}")
-
+	local old_path old_name old_name_hl missing_word missing_words=() partial_words=()
 	old_path=$(get_old_path "$cf_path" "$metadata_path")
 	old_name=$(basename "$old_path")
 
-	missing_words="$(echo "${old_name%.*}" | tokenize '\n' | { grep -ivE "^($cf_tokens)+\$" || true; } | paste -sd '|')"
-	old_name_hl="$(echo "$old_name" | cgrep '1;31' "$missing_words" | cgrep '1;32' "$cf_tokens" | cgrep '1;30' "$TOKENS_TO_IGNORE" )"
+	while read -r missing_word || [[ -n "$missing_word" ]]; do
+		if echo "$cf_tokens" | grep -qiE "^$(echo "$missing_word" | sed -E "${sed_exprs[@]}")"; then
+			partial_words+=("$missing_word")
+		else
+			missing_words+=("$missing_word")
+		fi
+	done < <(echo "${old_name%.*}" | tokenize $'\n' | { grep -ivE "^($masked_cf_tokens)+\$" || true; })
+
+	old_name_hl=$(echo "$old_name" |
+		cgrep '1;31' "$(str_concat '|' "${missing_words[@]}")" |
+		cgrep '1;33' "$(str_concat '|' "${partial_words[@]}")" |
+		cgrep '1;32' "$masked_cf_tokens" |
+		cgrep '1;30' "$TOKENS_TO_IGNORE" )
+
+	if [[ "$MATCH_PARTIAL_WORDS" != true ]]; then
+		missing_words=("${missing_words[@]}" "${partial_words[@]}")
+	fi
+
 	echo "Old	'$old_name_hl' (in '${old_path%/*}/')"
 
-	if [[ "$missing_words" != "" ]]; then
-		echo -e "Missing words from the old file name: ${BOLD}$missing_words${NC}"
+	if (( ${#missing_words[@]} != 0 )); then
+		echo -e "Missing words from the old file name: ${BOLD}$(str_concat ',' "${missing_words[@]}")${NC}"
 		return 2
 	fi
 
