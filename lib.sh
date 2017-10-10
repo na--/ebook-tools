@@ -148,30 +148,25 @@ uniq_no_sort() {
 	awk '!x[$0]++'
 }
 
+# Concatenate the passed arguments with $1 (can be multiple characters)
 str_concat () {
-	local arg od="," id="\n"
-	for arg in "$@"; do
-		case "$arg" in
-			-od=*|--output-delimiter=*) od="${arg#*=}" ;;
-			-id=*|--input-delimiter=*) id="${arg#*=}" ;;
-			*) break ;;
-		esac
-		shift # past argument=value or argument with no value
-	done
+	local od="$1"
+	shift
+	[[ "$#" == "0" ]] && return
+	echo -n "$1"
+	shift
+	printf "%s" "${@/#/$od}";
+}
 
-	if [[ "$#" != "0" ]]; then
-		# concatenate the remaining function arguments
-		echo -n "$1"
-		shift
-		printf "%s" "${@/#/$od}";
-	else
-		# read values from stdin (separated by id) and concatenate them
-		read -d "$id" -r arg
-		echo -n "$arg"
-		while read -d "$id" -r arg || [[ -n "$arg" ]]; do
-			echo -n "${od}${arg}"
-		done
-	fi
+# Read values from stdin (separated by $2 or newline by default) and
+# concatenate them with $1. The delimiter can be multiple characters
+stream_concat () {
+	local od="$1" id="${2:-$'\n'}" val
+	read -d "$id" -r val
+	echo -n "$val"
+	while read -d "$id" -r val || [[ -n "$val" ]]; do
+		echo -n "${od}${val}"
+	done
 }
 
 # Validates ISBN-10 and ISBN-13 numbers
@@ -244,7 +239,7 @@ find_isbns() {
 				echo "$isbn"
 			fi
 		done
-	) | paste -sd "$ISBN_RET_SEPARATOR"
+	) | stream_concat "$ISBN_RET_SEPARATOR"
 }
 
 
@@ -294,7 +289,7 @@ tokenize() {
 		else
 			cat
 		fi
-	} | paste -sd "$separator"
+	} | stream_concat "$separator"
 }
 
 
@@ -449,7 +444,7 @@ search_file_for_isbns() {
 	fi
 
 
-	if isbns="$(get_all_isbns_from_archive "$file_path" | uniq_no_sort | paste -sd "$ISBN_RET_SEPARATOR")"; then
+	if isbns="$(get_all_isbns_from_archive "$file_path" | uniq_no_sort | stream_concat "$ISBN_RET_SEPARATOR")"; then
 		if [[ "$isbns" != "" ]]; then
 			decho "Extracted ISBNs '$isbns' from the archive file!"
 			echo -n "$isbns"
