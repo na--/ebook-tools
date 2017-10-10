@@ -148,14 +148,38 @@ uniq_no_sort() {
 	awk '!x[$0]++'
 }
 
+str_concat () {
+	local arg od="," id="\n"
+	for arg in "$@"; do
+		case "$arg" in
+			-od=*|--output-delimiter=*) od="${arg#*=}" ;;
+			-id=*|--input-delimiter=*) id="${arg#*=}" ;;
+			*) break ;;
+		esac
+		shift # past argument=value or argument with no value
+	done
+
+	if [[ "$#" != "0" ]]; then
+		# concatenate the remaining function arguments
+		echo -n "$1"
+		shift
+		printf "%s" "${@/#/$od}";
+	else
+		# read values from stdin (separated by id) and concatenate them
+		read -d "$id" -r arg
+		echo -n "$arg"
+		while read -d "$id" -r arg || [[ -n "$arg" ]]; do
+			echo -n "${od}${arg}"
+		done
+	fi
+}
 
 # Validates ISBN-10 and ISBN-13 numbers
 is_isbn_valid() {
-	local isbn sum=0
+	local isbn i number sum=0
 	isbn="$(echo "$1" | tr -d ' -' | tr '[:lower:]' '[:upper:]')"
 
 	if [ "${#isbn}" == "10" ]; then
-		local number
 		for i in {0..9}; do
 			number="${isbn:$i:1}"
 			if [[ "$i" == "9" && "$number" == "X" ]]; then
@@ -185,9 +209,13 @@ is_isbn_valid() {
 
 # Reads and echoes only n lines from STDIN, without consuming the rest
 cat_n() {
-	local lines=0
-	while ((lines++ < $1 )) && read -r line; do
-		echo "$line"
+	local line="" lines=0
+	while ((lines++ < $1 )); do
+		if read -r line; then
+			echo "$line"
+		elif [[ $line != "" ]]; then
+			echo -n "$line"
+		fi
 	done
 }
 
