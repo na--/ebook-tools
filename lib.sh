@@ -397,21 +397,23 @@ get_all_isbns_from_archive() {
 # more "expensive" tactics. If at some point ISBN numbers are found, they
 # are echoed to stdout and the function returns.
 # These are the steps:
-#   - Check the supplied file name and path for ISBNs
+#   - Check the supplied file name for ISBNs (the path is ignored)
 #   - If the MIME type of the file matches ISBN_DIRECT_GREP_FILES, search
 #     the file contents directly for ISBNs
-#   - If the MIME type matches ISBN_IGNORED_FILES, the function returns early
+#   - If the MIME type matches ISBN_IGNORED_FILES, the function returns
+#     early with no results
 #   - Check the file metadata from calibre's `ebook-meta` for ISBNs
 #   - Try to extract the file as an archive with `7z`; if successful,
 #     recursively call search_file_for_isbns for all the extracted files
-#   - Try to convert the file to a .txt via convert_to_txt()
+#   - If the file is not an archive, try to convert it to a .txt file
+#     via convert_to_txt()
 search_file_for_isbns() {
 	local file_path="$1" isbns
 	decho "Searching file '$file_path' for ISBN numbers..."
 
-	isbns="$(echo "$file_path" | find_isbns)"
+	isbns="$(basename "$file_path" | find_isbns)"
 	if [[ "$isbns" != "" ]]; then
-		decho "Extracted ISBNs '$isbns' from file path!"
+		decho "Extracted ISBNs '$isbns' from the file name!"
 		echo -n "$isbns"
 		return
 	fi
