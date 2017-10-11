@@ -351,7 +351,7 @@ review_file() {
 for fpath in "$@"; do
 	echo "Recursively scanning '$fpath' for files (except .${OUTPUT_METADATA_EXTENSION})"
 
-	find "$fpath" -type f ! -name "*.${OUTPUT_METADATA_EXTENSION}" -print0 | sort -z | while IFS= read -r -d '' file_to_review
+	find "$fpath" -type f ! -name "*.${OUTPUT_METADATA_EXTENSION}" -print0 | sort -z "${FILE_SORT_FLAGS[@]}" | while IFS= read -r -d '' file_to_review
 	do
 		review_file "$file_to_review"
 		echo "==============================================================================="

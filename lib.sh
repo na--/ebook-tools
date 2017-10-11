@@ -54,6 +54,7 @@ WITHOUT_ISBN_IGNORE="$(echo '
 
 TOKEN_MIN_LENGTH=3
 TOKENS_TO_IGNORE='ebook|book|novel|series|ed(ition)?|vol(ume)?|(19|20)[0-9][0-9]'
+FILE_SORT_FLAGS=()
 
 #shellcheck disable=SC2016
 OUTPUT_FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]+ (${d[PUBLISHED]%%-*})}${d[ISBN]+ [${d[ISBN]}]}.${d[EXT]}"'
@@ -91,6 +92,7 @@ handle_script_arg() {
 		-mfo=*|--metadata-fetch-order=*) ISBN_METADATA_FETCH_ORDER="${arg#*=}" ;;
 		-owis=*|--organize--without--isbn-sources=*) ORGANIZE_WITHOUT_ISBN_SOURCES="${arg#*=}" ;;
 		-wii=*|--without-isbn-ignore=*) WITHOUT_ISBN_IGNORE="${arg#*=}" ;;
+		-fsf=*|--file-sort-flags=*) FILE_SORT_FLAGS+=("${arg#*=}") ;;
 
 		-oft=*|--output-filename-template=*) OUTPUT_FILENAME_TEMPLATE="${arg#*=}" ;;
 		-ome=*|--output-metadata-extension=*) OUTPUT_METADATA_EXTENSION="${arg#*=}" ;;
@@ -384,7 +386,7 @@ get_all_isbns_from_archive() {
 		fi
 		decho "Removing '$file_to_check'..."
 		rm "$file_to_check"
-	done < <(find "$tmpdir" -type f  -print0 | sort -z)
+	done < <(find "$tmpdir" -type f  -print0 | sort -z "${FILE_SORT_FLAGS[@]}")
 
 	decho "Removing temporary folder '$tmpdir' (should be empty)..."
 	find "$tmpdir" -type d -empty -delete

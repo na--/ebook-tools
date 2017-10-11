@@ -305,7 +305,7 @@ organize_file() {
 
 for fpath in "$@"; do
 	decho "Recursively scanning '$fpath' for files"
-	find "$fpath" -type f  -print0 | sort -z | while IFS= read -r -d '' file_to_check
+	find "$fpath" -type f  -print0 | sort -z "${FILE_SORT_FLAGS[@]}" | while IFS= read -r -d '' file_to_check
 	do
 		organize_file "$file_to_check" 2> >(debug_prefixer "[$file_to_check] " "$DEBUG_PREFIX_LENGTH")
 	done
