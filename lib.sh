@@ -36,8 +36,8 @@ ISBN_GREP_RF_REVERSE_LAST=50
 
 # Whether to use tesseract to OCR images as well as pdfs and djvu files without
 # text for ISBN searching and conversion to txt
-OCR_ENABLED=false
-OCR_ONLY_FIRST_LAST_PAGES="10,5"
+OCR_ENABLED="false"
+OCR_ONLY_FIRST_LAST_PAGES="7,3"
 
 # Require Calibre 2.84+, previous versions will search in all enabled sources in the GUI
 ISBN_METADATA_FETCH_ORDER="Goodreads,Amazon.com,Google,ISBNDB,WorldCat xISBN,OZON.ru"
@@ -90,7 +90,7 @@ handle_script_arg() {
 				ISBN_GREP_RF_REVERSE_LAST="${arg##*,}"
 			fi
 		;;
-		-ocr|--ocr-enabled) OCR_ENABLED=true ;;
+		-ocr=*|--ocr-enabled=*) OCR_ENABLED="${arg#*=}" ;;
 		-ocrop=*|--ocr-only-first-last-pages=*) OCR_ONLY_FIRST_LAST_PAGES="${arg#*=}" ;;
 
 		--token-min-length=*) TOKEN_MIN_LENGTH="${arg#*=}" ;;
@@ -358,11 +358,10 @@ check_file_for_corruption() {
 
 # Tries to convert the supplied ebook file into .txt. It uses calibre's
 # ebook-convert tool. For optimization, if present, it will use pdftotext
-# for pdfs and catdoc for word files.
+# for pdfs, catdoc for word files and djvutxt for djvu files.
 # Arguments: input path, output path (shloud have .txt extension), mimetype
 convert_to_txt() {
 	local if="$1" of="$2" mimetype="$3"
-
 	if [[ "$mimetype" == "application/pdf" ]] && command_exists pdftotext; then
 		decho "The file looks like a pdf, using pdftotext to extract the text"
 		pdftotext "$if" "$of"
@@ -374,28 +373,15 @@ convert_to_txt() {
 		djvutxt "$if" "$of"
 	elif [[ "$mimetype" != "image/vnd.djvu"* && "$mimetype" == "image/"* ]]; then
 		decho "The file looks like a normal image ($mimetype), skipping ebook-convert usage!"
+		return 1
 	else
 		decho "Trying to use calibre's ebook-convert to convert the '$mimetype' file to .txt"
-		if ebook-convert "$if" "$of"; then
-			decho "Successfully converted to txt!"
-		elif [[ "$OCR_ENABLED" != true ]]; then
-			decho "There was an error while converting to txt and OCR is not enabled, returning an error"
-			return 1
-		else
-			rm "$of" # Clean up any partially converted result before the error
-		fi
+		ebook-convert "$if" "$of"
 	fi
+}
 
-	if [[ -f "$of" ]] && grep -qiE "[[:alnum:]]+" "$of"; then
-		decho "The converted txt seems to contain text, returning normally..."
-		return 0
-	fi
-
-	if [[ "$OCR_ENABLED" != true ]]; then
-		decho "Empty result or error converting to txt! OCR is not enabled, returning an error!"
-		return 2
-	fi
-	decho "Empty result or error converting to txt, trying to use OCR..."
+ocr_file() {
+	local if="$1" of="$2" mimetype="$3"
 	local ocr_first_pages="${OCR_ONLY_FIRST_LAST_PAGES%,*}" ocr_last_pages="${OCR_ONLY_FIRST_LAST_PAGES##*,}"
 	local num_pages page_convert_cmd
 
@@ -481,6 +467,9 @@ get_all_isbns_from_archive() {
 #     recursively call search_file_for_isbns for all the extracted files
 #   - If the file is not an archive, try to convert it to a .txt file
 #     via convert_to_txt()
+#   - If OCR is enabled and convert_to_txt() fails or its result is empty,
+#     try OCR-ing the file. If the result is non-empty but does not contain
+#     ISBNs and OCR_ENABLED is set to "always", run OCR as well.
 search_file_for_isbns() {
 	local file_path="$1" isbns
 	decho "Searching file '$file_path' for ISBN numbers..."
@@ -523,35 +512,61 @@ search_file_for_isbns() {
 
 
 	if isbns="$(get_all_isbns_from_archive "$file_path" | uniq_no_sort | stream_concat "$ISBN_RET_SEPARATOR")"; then
-		if [[ "$isbns" != "" ]]; then
-			decho "Extracted ISBNs '$isbns' from the archive file!"
-			echo -n "$isbns"
-			return
-		fi
-	else
-		local tmptxtfile
-		tmptxtfile="$(mktemp --suffix='.txt')"
-		decho "Converting ebook to text format in file '$tmptxtfile'..."
-		if convert_to_txt "$file_path" "$tmptxtfile" "$mimetype" 2>&1 | debug_prefixer "[ebook2txt] " 0 --width=80 -s; then
-			decho "Conversion is done, trying to find ISBNs in the text output..."
-			isbns="$(cat_file_for_isbn_grep "$tmptxtfile" | find_isbns)"
-			if [[ "$isbns" != "" ]]; then
-				decho "Extracted ISBNs '$isbns' from the converted text output!"
-				echo -n "$isbns"
-				decho "Removing '$tmptxtfile'..."
-				rm "$tmptxtfile"
-				return
-			else
-				decho "Did not find any ISBNs"
-			fi
-		else
-			decho "There was an error converting the book to txt format"
-		fi
-		decho "Removing '$tmptxtfile'..."
-		rm "$tmptxtfile"
+		decho "Extracted ISBNs '$isbns' from the archive file"
+		echo -n "$isbns"
+		return
 	fi
 
-	decho "Could not find any ISBNs in '$file_path' :("
+	local tmptxtfile try_ocr=false
+	tmptxtfile="$(mktemp --suffix='.txt')"
+	decho "Converting ebook to text format in file '$tmptxtfile'..."
+
+	if convert_to_txt "$file_path" "$tmptxtfile" "$mimetype" 2>&1 | debug_prefixer "[ebook2txt] " 0 --width=80 -s; then
+		decho "Conversion to text was successfull, checking the result..."
+		if ! grep -qiE "[[:alnum:]]+" "$tmptxtfile"; then
+			decho "The converted txt with size $(stat -c '%s' "$tmptxtfile") bytes does not seem to contain text:"
+			#xxd -a $tmptxtfile | head | debug_prefixer "[cat tmp-txt] "
+			try_ocr=true
+		else
+			isbns="$(cat_file_for_isbn_grep "$tmptxtfile" | find_isbns)"
+			if [[ "$isbns" != "" ]]; then
+				decho "Text output contains ISBNs '$isbns'!"
+			elif [[ "$OCR_ENABLED" == "always" ]]; then
+				decho "We will try OCR because the successfully converted text did not have any ISBNs"
+				try_ocr=true
+			else
+				decho "Did not find any ISBNs and will NOT try OCR"
+			fi
+		fi
+	else
+		decho "There was an error converting the book to txt format"
+		try_ocr=true
+	fi
+
+	if [[ "$isbns" == "" && "$OCR_ENABLED" != false && "$try_ocr" == true ]]; then
+		decho "Trying to run OCR on the file..."
+		if ocr_file "$file_path" "$tmptxtfile" "$mimetype" 2>&1 | debug_prefixer "[ocr] " 0 --width=80 -t; then
+			decho "OCR was successfull, checking the result..."
+			isbns="$(cat_file_for_isbn_grep "$tmptxtfile" | find_isbns)"
+			if [[ "$isbns" != "" ]]; then
+				decho "OCR output contains ISBNs '$isbns'!"
+			else
+				decho "Did not find any ISBNs in the OCR output"
+			fi
+		else
+			decho "There was an error while running OCR!"
+		fi
+	fi
+
+	decho "Removing '$tmptxtfile'..."
+	rm "$tmptxtfile"
+
+	if [[ "$isbns" != "" ]]; then
+		decho "Returning the found ISBNs '$isbns'!"
+		echo -n "$isbns"
+	else
+		decho "Could not find any ISBNs in '$file_path' :("
+	fi
 }
 
 
