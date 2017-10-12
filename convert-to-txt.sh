@@ -7,6 +7,7 @@ DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 . "$DIR/lib.sh"
 
 # Overwrite the global variables for ISBN-optimized OCRs
+OCR_TESSERACT_ARGS=()
 OCR_ONLY_FIRST_LAST_PAGES="false"
 
 for arg in "$@"; do
@@ -21,21 +22,36 @@ unset -v arg
 input_file="$1"
 output_file="${2:-}"
 mime_type=$(file --brief --mime-type "$input_file")
+is_tmp_file=false
 
-if [[ "$output_file" != "" ]]; then
-    if [[ "${output_file##*.}" != "txt" ]]; then
-        echo "Error: the ouput file needs to have a .txt extension!"
-        exit 1
+if [[ "$output_file" == "" ]]; then
+    is_tmp_file=true
+    output_file=$(mktemp --suffix='.txt')
+    decho "Created a temporary file '$output_file'"
+elif [[ "${output_file##*.}" != "txt" ]]; then
+    echo "Error: the ouput file needs to have a .txt extension!"
+    exit 1
+fi
+args=("$input_file" "$output_file" "$mime_type")
+
+if [[ "$OCR_ENABLED" == "always" ]]; then
+    decho "OCR=always, first try OCR then conversion"
+    ocr_file "${args[@]}" || convert_to_txt "${args[@]}"
+elif [[ "$OCR_ENABLED" == "true" ]]; then
+    decho "OCR=true, first try conversion and then OCR"
+    if convert_to_txt "${args[@]}" && grep -qiE "[[:alnum:]]+" "$output_file"; then
+        decho "conversion successfull, will not try OCR"
+    else
+        ocr_file "${args[@]}"
     fi
-
-    convert_to_txt "$input_file" "$output_file" "$mime_type"
 else
-    tmptxtfile="$(mktemp --suffix='.txt')"
-    decho "Created a temporary file '$tmptxtfile'"
+    decho "OCR=false, try only conversion"
+    convert_to_txt "${args[@]}"
+fi
 
-    convert_to_txt "$input_file" "$tmptxtfile" "$mime_type"
-    cat "$tmptxtfile"
+if [[ "$is_tmp_file" == true ]]; then
+    cat "$output_file"
 
-    decho "Removing the temporary file '$tmptxtfile'"
-    rm "$tmptxtfile"
+    decho "Removing the temporary file '$output_file'"
+    rm "$output_file"
 fi
