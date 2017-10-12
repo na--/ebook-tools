@@ -189,7 +189,7 @@ organize_by_filename_and_meta() {
 	fi
 
 	local ebookmeta
-	ebookmeta=$(ebook-meta "$old_path" | grep -E '[a-zA-Z()]+ +: .*')
+	ebookmeta=$(ebook-meta "$old_path" | grep -E '[a-zA-Z()]+ +: .*') #'
 	decho "Ebook metadata:"
 	echo "$ebookmeta" | debug_prefixer "	" 0 --width=80 -t
 
