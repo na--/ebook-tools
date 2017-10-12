@@ -38,6 +38,7 @@ ISBN_GREP_RF_REVERSE_LAST=50
 # text for ISBN searching and conversion to txt
 OCR_ENABLED="false"
 OCR_ONLY_FIRST_LAST_PAGES="7,3"
+OCR_TESSERACT_ARGS=(--psm 12)
 
 # Require Calibre 2.84+, previous versions will search in all enabled sources in the GUI
 ISBN_METADATA_FETCH_ORDER="Goodreads,Amazon.com,Google,ISBNDB,WorldCat xISBN,OZON.ru"
@@ -92,6 +93,7 @@ handle_script_arg() {
 		;;
 		-ocr=*|--ocr-enabled=*) OCR_ENABLED="${arg#*=}" ;;
 		-ocrop=*|--ocr-only-first-last-pages=*) OCR_ONLY_FIRST_LAST_PAGES="${arg#*=}" ;;
+		-ocrta=*|--ocr-tesseract-args=*) OCR_TESSERACT_ARGS=(${arg#*=}) ;;
 
 		--token-min-length=*) TOKEN_MIN_LENGTH="${arg#*=}" ;;
 		--tokens-to-ignore=*) TOKENS_TO_IGNORE="${arg#*=}" ;;
@@ -99,7 +101,7 @@ handle_script_arg() {
 		-mfo=*|--metadata-fetch-order=*) ISBN_METADATA_FETCH_ORDER="${arg#*=}" ;;
 		-owis=*|--organize--without--isbn-sources=*) ORGANIZE_WITHOUT_ISBN_SOURCES="${arg#*=}" ;;
 		-wii=*|--without-isbn-ignore=*) WITHOUT_ISBN_IGNORE="${arg#*=}" ;;
-		-fsf=*|--file-sort-flags=*) FILE_SORT_FLAGS+=("${arg#*=}") ;;
+		-fsf=*|--file-sort-flags=*) FILE_SORT_FLAGS=(${arg#*=}) ;;
 
 		-oft=*|--output-filename-template=*) OUTPUT_FILENAME_TEMPLATE="${arg#*=}" ;;
 		-ome=*|--output-metadata-extension=*) OUTPUT_METADATA_EXTENSION="${arg#*=}" ;;
@@ -386,7 +388,7 @@ ocr_file() {
 	local num_pages page_convert_cmd
 
 	convert_pdf_page() {
-		gs -q -r300 -dFirstPage="$3" -dLastPage="$3" -dNOPAUSE -sDEVICE=png16m -sOutputFile="$2" "$1" -c quit
+		gs -q -r450 -dFirstPage="$3" -dLastPage="$3" -dNOPAUSE -dINTERPOLATE -sDEVICE=png16m -sOutputFile="$2" "$1" -c quit
 	}
 	convert_djvu_page() {
 		ddjvu -page="$3" -format=tif "$1" "$2"
@@ -416,7 +418,7 @@ ocr_file() {
 			decho "Running OCR of page $page ..."
 			tmp_file=$(mktemp)
 			"$page_convert_cmd" "$if" "$tmp_file" "$page"
-			tesseract "$tmp_file" stdout
+			tesseract "$tmp_file" stdout "${OCR_TESSERACT_ARGS[@]}"
 			rm "$tmp_file"
 		fi
 		page=$(( page + 1))
