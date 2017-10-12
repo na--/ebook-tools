@@ -383,7 +383,7 @@ convert_to_txt() {
 }
 
 tesseract_wrapper () {
-	tesseract "$@" --psm 12
+	tesseract "$1" stdout --psm 12 > "$2"
 }
 
 ocr_file() {
@@ -413,18 +413,22 @@ ocr_file() {
 
 	decho "Running OCR on file '$if' $num_pages pages and with mimetype '$mimetype'..."
 
-	local page=1 tmp_file
+	local page=1 tmp_file tmp_file_txt
 	while (( page <= num_pages )); do
 		if [[ "$OCR_ONLY_FIRST_LAST_PAGES" == false ]] ||
 			(( page <= ${ocr_first_pages:-0} )) ||
 			((page > num_pages - ${ocr_last_pages:-0} ));
 		then
-			decho "Running OCR of page $page ..."
 			tmp_file=$(mktemp)
+			tmp_file_txt=$(mktemp --suffix='.txt')
+			decho "Running OCR of page $page, using tmp files '$tmp_file' and '$tmp_file_txt' ..."
+
 			"$page_convert_cmd" "$if" "$tmp_file" "$page"
-			"$OCR_COMMAND" "$tmp_file" "$tmp_file.txt"
-			cat "$tmp_file.txt"
-			rm "$tmp_file" "$tmp_file.txt"
+			"$OCR_COMMAND" "$tmp_file" "$tmp_file_txt"
+			cat "$tmp_file_txt"
+
+			decho "Cleaning up tmp files '$tmp_file' and '$tmp_file_txt'"
+			rm "$tmp_file" "$tmp_file_txt"
 		fi
 		page=$(( page + 1))
 	done > "$of"
