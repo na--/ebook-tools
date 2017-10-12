@@ -392,7 +392,7 @@ ocr_file() {
 	local num_pages page_convert_cmd
 
 	convert_pdf_page() {
-		gs -dSAFER -q -r600 -dFirstPage="$3" -dLastPage="$3" -dNOPAUSE -dINTERPOLATE -sDEVICE=png16m -sOutputFile="$2" "$1" -c quit
+		gs -dSAFER -q -r300 -dFirstPage="$3" -dLastPage="$3" -dNOPAUSE -dINTERPOLATE -sDEVICE=png16m -sOutputFile="$2" "$1" -c quit
 	}
 	convert_djvu_page() {
 		ddjvu -page="$3" -format=tif "$1" "$2"
