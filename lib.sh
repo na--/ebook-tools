@@ -21,7 +21,7 @@ TESTED_ARCHIVE_EXTENSIONS='^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|
 # is_isbn_valid() or another ISBN validator
 ISBN_REGEX='(?<![0-9])(977|978|979)?+(([ –—-]?[0-9][ –—-]?){9}[0-9xX])(?![0-9-])'
 ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
-ISBN_IGNORED_FILES='^image/(png|jpeg|gif|svg.+)|application/(x-shockwave-flash|CDFV2|vnd.ms-opentype|x-font-ttf|x-dosexec|vnd.ms-excel|x-java-applet)|audio/.+$'
+ISBN_IGNORED_FILES='^image/(gif|svg.+)|application/(x-shockwave-flash|CDFV2|vnd.ms-opentype|x-font-ttf|x-dosexec|vnd.ms-excel|x-java-applet)|audio/.+$'
 ISBN_RET_SEPARATOR=","
 
 # These options specify if and how we should reoder ISBN_DIRECT_GREP files
@@ -33,6 +33,11 @@ ISBN_RET_SEPARATOR=","
 ISBN_GREP_REORDER_FILES=true
 ISBN_GREP_RF_SCAN_FIRST=400
 ISBN_GREP_RF_REVERSE_LAST=50
+
+# Whether to use tesseract to OCR images as well as pdfs and djvu files without
+# text for ISBN searching and conversion to txt
+OCR_ENABLED=false
+OCR_ONLY_FIRST_LAST_PAGES="10,5"
 
 # Require Calibre 2.84+, previous versions will search in all enabled sources in the GUI
 ISBN_METADATA_FETCH_ORDER="Goodreads,Amazon.com,Google,ISBNDB,WorldCat xISBN,OZON.ru"
@@ -85,6 +90,8 @@ handle_script_arg() {
 				ISBN_GREP_RF_REVERSE_LAST="${arg##*,}"
 			fi
 		;;
+		-ocr|--ocr-enabled) OCR_ENABLED=true ;;
+		-ocrop=*|--ocr-only-first-last-pages=*) OCR_ONLY_FIRST_LAST_PAGES="${arg#*=}" ;;
 
 		--token-min-length=*) TOKEN_MIN_LENGTH="${arg#*=}" ;;
 		--tokens-to-ignore=*) TOKENS_TO_IGNORE="${arg#*=}" ;;
@@ -354,13 +361,80 @@ check_file_for_corruption() {
 # for pdfs and catdoc for word files.
 # Arguments: input path, output path (shloud have .txt extension), mimetype
 convert_to_txt() {
-	if [[ "$3" == "application/pdf" ]] && command_exists pdftotext; then
-		pdftotext "$1" "$2"
-	elif [[ "$3" == "application/msword" ]] && command_exists catdoc; then
-		catdoc "$1" > "$2"
+	local if="$1" of="$2" mimetype="$3"
+
+	if [[ "$mimetype" == "application/pdf" ]] && command_exists pdftotext; then
+		decho "The file looks like a pdf, using pdftotext to extract the text"
+		pdftotext "$if" "$of"
+	elif [[ "$mimetype" == "application/msword" ]] && command_exists catdoc; then
+		decho "The file looks like a doc, using catdoc to extract the text"
+		catdoc "$if" > "$of"
+	elif [[ "$mimetype" == "image/vnd.djvu"* ]] && command_exists djvutxt; then
+		decho "The file looks like a djvu, using djvutxt to extract the text"
+		djvutxt "$if" "$of"
+	elif [[ "$mimetype" != "image/vnd.djvu"* && "$mimetype" == "image/"* ]]; then
+		decho "The file looks like a normal image ($mimetype), skipping ebook-convert usage!"
 	else
-		ebook-convert "$1" "$2"
+		decho "Trying to use calibre's ebook-convert to convert the '$mimetype' file to .txt"
+		if ebook-convert "$if" "$of"; then
+			decho "Successfully converted to txt!"
+		elif [[ "$OCR_ENABLED" != true ]]; then
+			decho "There was an error while converting to txt and OCR is not enabled, returning an error"
+			return 1
+		else
+			rm "$of" # Clean up any partially converted result before the error
+		fi
 	fi
+
+	if [[ -f "$of" ]] && grep -qiE "[[:alnum:]]+" "$of"; then
+		decho "The converted txt seems to contain text, returning normally..."
+		return 0
+	fi
+
+	if [[ "$OCR_ENABLED" != true ]]; then
+		decho "Empty result or error converting to txt! OCR is not enabled, returning an error!"
+		return 2
+	fi
+	decho "Empty result or error converting to txt, trying to use OCR..."
+	local ocr_first_pages="${OCR_ONLY_FIRST_LAST_PAGES%,*}" ocr_last_pages="${OCR_ONLY_FIRST_LAST_PAGES##*,}"
+	local num_pages page_convert_cmd
+
+	convert_pdf_page() {
+		gs -q -r300 -dFirstPage="$3" -dLastPage="$3" -dNOPAUSE -sDEVICE=png16m -sOutputFile="$2" "$1" -c quit
+	}
+	convert_djvu_page() {
+		ddjvu -page="$3" -format=tif "$1" "$2"
+	}
+
+	case "$mimetype" in
+		application/pdf)
+			num_pages=$(pdfinfo "$if" | sed -n -E "s/^Pages:\s+([0-9]+)/\1/p")
+			page_convert_cmd=convert_pdf_page
+		;;
+		image/vnd.djvu*)
+			num_pages=$( djvused -e "n" "$if")
+			page_convert_cmd=convert_djvu_page
+		;;
+		image/*) tesseract "$if" "$of" ;;
+		*) decho "Unsupported mimetype '$mimetype'!"; return 4 ;;
+	esac
+
+	decho "Running OCR on file '$if' $num_pages pages and with mimetype '$mimetype'..."
+
+	local page=1 tmp_file
+	while (( page <= num_pages )); do
+		if [[ "$OCR_ONLY_FIRST_LAST_PAGES" == false ]] ||
+			(( page <= ${ocr_first_pages:-0} )) ||
+			((page > num_pages - ${ocr_last_pages:-0} ));
+		then
+			decho "Running OCR of page $page ..."
+			tmp_file=$(mktemp)
+			"$page_convert_cmd" "$if" "$tmp_file" "$page"
+			tesseract "$tmp_file" stdout
+			rm "$tmp_file"
+		fi
+		page=$(( page + 1))
+	done > "$of"
 }
 
 
