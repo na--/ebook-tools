@@ -7,7 +7,7 @@ DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 . "$DIR/lib.sh"
 
 # Overwrite the global variables for ISBN-optimized OCRs
-OCR_TESSERACT_ARGS=()
+OCR_COMMAND="tesseract"
 OCR_ONLY_FIRST_LAST_PAGES="false"
 
 for arg in "$@"; do

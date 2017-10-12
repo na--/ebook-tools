@@ -34,11 +34,11 @@ ISBN_GREP_REORDER_FILES=true
 ISBN_GREP_RF_SCAN_FIRST=400
 ISBN_GREP_RF_REVERSE_LAST=50
 
-# Whether to use tesseract to OCR images as well as pdfs and djvu files without
-# text for ISBN searching and conversion to txt
+# Whether to use OCR on image files, pdfs and djvu files for ISBN searching
+# and conversion to txt
 OCR_ENABLED="false"
 OCR_ONLY_FIRST_LAST_PAGES="7,3"
-OCR_TESSERACT_ARGS=(--psm 12)
+OCR_COMMAND="tesseract_wrapper"
 
 # Require Calibre 2.84+, previous versions will search in all enabled sources in the GUI
 ISBN_METADATA_FETCH_ORDER="Goodreads,Amazon.com,Google,ISBNDB,WorldCat xISBN,OZON.ru"
@@ -93,7 +93,7 @@ handle_script_arg() {
 		;;
 		-ocr=*|--ocr-enabled=*) OCR_ENABLED="${arg#*=}" ;;
 		-ocrop=*|--ocr-only-first-last-pages=*) OCR_ONLY_FIRST_LAST_PAGES="${arg#*=}" ;;
-		-ocrta=*|--ocr-tesseract-args=*) OCR_TESSERACT_ARGS=(${arg#*=}) ;;
+		-ocrc=*|--ocr-command=*) OCR_COMMAND="${arg#*=}" ;;
 
 		--token-min-length=*) TOKEN_MIN_LENGTH="${arg#*=}" ;;
 		--tokens-to-ignore=*) TOKENS_TO_IGNORE="${arg#*=}" ;;
@@ -382,13 +382,17 @@ convert_to_txt() {
 	fi
 }
 
+tesseract_wrapper () {
+	tesseract "$@" --psm 12
+}
+
 ocr_file() {
 	local if="$1" of="$2" mimetype="$3"
 	local ocr_first_pages="${OCR_ONLY_FIRST_LAST_PAGES%,*}" ocr_last_pages="${OCR_ONLY_FIRST_LAST_PAGES##*,}"
 	local num_pages page_convert_cmd
 
 	convert_pdf_page() {
-		gs -q -r450 -dFirstPage="$3" -dLastPage="$3" -dNOPAUSE -dINTERPOLATE -sDEVICE=png16m -sOutputFile="$2" "$1" -c quit
+		gs -dSAFER -q -r600 -dFirstPage="$3" -dLastPage="$3" -dNOPAUSE -dINTERPOLATE -sDEVICE=png16m -sOutputFile="$2" "$1" -c quit
 	}
 	convert_djvu_page() {
 		ddjvu -page="$3" -format=tif "$1" "$2"
@@ -403,7 +407,7 @@ ocr_file() {
 			num_pages=$( djvused -e "n" "$if")
 			page_convert_cmd=convert_djvu_page
 		;;
-		image/*) tesseract "$if" "$of" ;;
+		image/*) "$OCR_COMMAND" "$if" "$of" ;;
 		*) decho "Unsupported mimetype '$mimetype'!"; return 4 ;;
 	esac
 
@@ -418,8 +422,9 @@ ocr_file() {
 			decho "Running OCR of page $page ..."
 			tmp_file=$(mktemp)
 			"$page_convert_cmd" "$if" "$tmp_file" "$page"
-			tesseract "$tmp_file" stdout "${OCR_TESSERACT_ARGS[@]}"
-			rm "$tmp_file"
+			"$OCR_COMMAND" "$tmp_file" "$tmp_file.txt"
+			cat "$tmp_file.txt"
+			rm "$tmp_file" "$tmp_file.txt"
 		fi
 		page=$(( page + 1))
 	done > "$of"
