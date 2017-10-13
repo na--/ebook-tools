@@ -46,20 +46,22 @@ ORGANIZE_WITHOUT_ISBN_SOURCES="Goodreads,Amazon.com,Google"
 
 # Should be matched against a lowercase filename.ext, lines that start with #
 # and newlines are removed. The default value should filter out most periodicals
-WITHOUT_ISBN_IGNORE="$(echo '
+RE_YEAR="(19[0-9]|20[0-$(date '+%Y' | cut -b 3)])[0-9]"
+WITHOUT_ISBN_IGNORE=$(echo "
 # Perdiodicals with filenames that contain something like 2010-11, 199010, 2015_7, 20110203:
-(^|[^0-9])(19|20)[0-9][0-9][ _\.-]*(0?[1-9]|10|11|12)([0-9][0-9])?($|[^0-9])
+(^|[^0-9])${RE_YEAR}[ _\.-]*(0?[1-9]|10|11|12)([0-9][0-9])?($|[^0-9])
 # Periodicals with month numbers before the year
-|(^|[^0-9])([0-9][0-9])?(0?[1-9]|10|11|12)[ _\.-]*(19|20)[0-9][0-9]($|[^0-9])
+|(^|[^0-9])([0-9][0-9])?(0?[1-9]|10|11|12)[ _\.-]*${RE_YEAR}($|[^0-9])
 # Periodicals with months or issues
 |((^|[^a-z])(jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|june?|july?|aug(ust)?|sep(tember)?|oct(ober)?|nov(ember)?|dec(ember)?|mag(azine)?|issue|#[ _\.-]*[0-9]+)+($|[^a-z]))
 # Periodicals with seasons and years
-|((spr(ing)?|sum(mer)?|aut(umn)?|win(ter)?|fall)[ _\.-]*(19|20)[0-9][0-9])
-|((19|20)[0-9][0-9][ _\.-]*(spr(ing)?|sum(mer)?|aut(umn)?|win(ter)?|fall))
-' | grep -v '^#' | tr -d '\n')"
+|((spr(ing)?|sum(mer)?|aut(umn)?|win(ter)?|fall)[ _\.-]*${RE_YEAR})
+|(${RE_YEAR}[ _\.-]*(spr(ing)?|sum(mer)?|aut(umn)?|win(ter)?|fall))
+" | grep -v '^#' | tr -d '\n')
+
 
 TOKEN_MIN_LENGTH=3
-TOKENS_TO_IGNORE='ebook|book|novel|series|ed(ition)?|vol(ume)?|(19|20)[0-9][0-9]'
+TOKENS_TO_IGNORE="ebook|book|novel|series|ed(ition)?|vol(ume)?|${RE_YEAR}"
 FILE_SORT_FLAGS=()
 
 #shellcheck disable=SC2016
