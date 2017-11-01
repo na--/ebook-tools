@@ -33,12 +33,16 @@ do
     decho "Found file '$book_path' with metadata.opf present, parsing metadata..."
     declare -A d=(
         ["EXT"]="${book_path##*.}"
-        ["TITLE"]="$(xpath -q -e '//dc:title/text()' < "$metadata_path")"
-        ["AUTHORS"]="$(xpath -q -e '//dc:creator/text()' < "$metadata_path" | stream_concat ', ')"
-        ["SERIES"]="$(xpath -q -e 'concat(//meta[@name="calibre:series"]/@content," #",//meta[@name="calibre:series_index"]/@content)' < "$metadata_path" | sed -E 's/\s*#\s*$//')"
-        ["PUBLISHED"]="$(xpath -q -e '//dc:date/text()' < "$metadata_path")"
-        ["ISBN"]="$(xpath -q -e '//dc:identifier[@opf:scheme="ISBN"]/text()' < "$metadata_path")"
+        ["TITLE"]=$(xpath -q -e '//dc:title/text()' < "$metadata_path")
+        ["AUTHORS"]=$(xpath -q -e '//dc:creator/text()' < "$metadata_path" | stream_concat ', ')
+        ["SERIES"]=$(xpath -q -e 'concat(//meta[@name="calibre:series"]/@content," #",//meta[@name="calibre:series_index"]/@content)' < "$metadata_path" | sed -E 's/\s*#\s*$//')
+        ["PUBLISHED"]=$(xpath -q -e '//dc:date/text()' < "$metadata_path")
+        ["ISBN"]=$(xpath -q -e '//dc:identifier[@opf:scheme="ISBN"]/text()' < "$metadata_path")
     )
+
+    if [[ "${d['ISBN']}" == "" ]]; then
+        d['ISBN']=$(find_isbns < "$metadata_path")
+    fi
 
     decho "Parsed metadata:"
 	for key in "${!d[@]}"; do
@@ -60,7 +64,7 @@ do
                 echo "ISBN                : ${d['ISBN']}"
                 echo "Old file path       : $book_path"
                 echo "Metadata source     : metadata.opf"
-            } > "${new_path}.$OUTPUT_METADATA_EXTENSION"
+            } | grep -vE " : $" > "${new_path}.$OUTPUT_METADATA_EXTENSION"
         ;;
 		opfcopy) cp --no-clobber "$metadata_path" "${new_path}.$OUTPUT_METADATA_EXTENSION" ;;
 		*) decho "Metadata was not copied or recreated" ;;
