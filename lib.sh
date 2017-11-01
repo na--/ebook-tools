@@ -65,7 +65,7 @@ TOKENS_TO_IGNORE="ebook|book|novel|series|ed(ition)?|vol(ume)?|${RE_YEAR}"
 FILE_SORT_FLAGS=()
 
 #shellcheck disable=SC2016
-OUTPUT_FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]+ (${d[PUBLISHED]%%-*})}${d[ISBN]+ [${d[ISBN]}]}.${d[EXT]}"'
+OUTPUT_FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]:+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]:+ (${d[PUBLISHED]%%-*})}${d[ISBN]:+ [${d[ISBN]}]}.${d[EXT]}"'
 OUTPUT_METADATA_EXTENSION="meta"
 
 
