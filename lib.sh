@@ -12,7 +12,7 @@ NC='\033[0m' #shellcheck disable=SC2034
 : "${VERBOSE:=false}"
 : "${DRY_RUN:=false}"
 : "${SYMLINK_ONLY:=false}"
-: "${DELETE_METADATA:=false}"
+: "${KEEP_METADATA:=false}"
 
 : "${TESTED_ARCHIVE_EXTENSIONS:=^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr|maff)\$}"
 
@@ -92,7 +92,7 @@ handle_script_arg() {
 		-v|--verbose) VERBOSE=true ;;
 		-d|--dry-run) DRY_RUN=true ;;
 		-sl|--symlink-only) SYMLINK_ONLY=true ;;
-		-dm|--delete-metadata) DELETE_METADATA=true ;;
+		-km|--keep-metadata) KEEP_METADATA=true ;;
 
 		--tested-archive-extensions=*) TESTED_ARCHIVE_EXTENSIONS="${arg#*=}" ;;
 		-i=*|--isbn-regex=*) ISBN_REGEX="${arg#*=}" ;;
@@ -643,7 +643,7 @@ move_or_link_ebook_file_and_metadata() {
 
 	move_or_link_file "$current_ebook_path" "$new_path"
 
-	if [[ "$DELETE_METADATA" == true ]]; then
+	if [[ "$KEEP_METADATA" != true ]]; then
 		decho "Removing metadata file '$current_metadata_path'..."
 		rm "$current_metadata_path"
 	else
