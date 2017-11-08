@@ -2,23 +2,22 @@
 
 set -euo pipefail
 
-DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
-# shellcheck source=./lib.sh
-. "$DIR/lib.sh"
+[ -z "${OUTPUT_FOLDERS:+x}" ] && OUTPUT_FOLDERS=()
 
-OUTPUT_FOLDERS=()
-
-QUICK_MODE=false
-CUSTOM_MOVE_BASE_DIR=""
-RESTORE_ORIGINAL_BASE_DIR=""
+: "${QUICK_MODE:=false}"
+: "${CUSTOM_MOVE_BASE_DIR:=""}"
+: "${RESTORE_ORIGINAL_BASE_DIR:=""}"
 
 # GNU sed extended expressions that aim to mask differences between the old and
 # new book filenames due to diacritics and special characters. The default
 # value is set below  the script argument parser.
-DIACRITIC_DIFFERENCE_MASKINGS=()
+[ -z "${DIACRITIC_DIFFERENCE_MASKINGS:+x}" ] && DIACRITIC_DIFFERENCE_MASKINGS=()
 
-MATCH_PARTIAL_WORDS=false
-VERBOSE=true
+: "${MATCH_PARTIAL_WORDS:=false}"
+: "${VERBOSE:=true}"
+
+# shellcheck source=./lib.sh
+. "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/lib.sh"
 
 print_help() {
 	echo "Interactive eBook organizer v$VERSION"

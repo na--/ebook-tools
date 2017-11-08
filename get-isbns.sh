@@ -2,11 +2,11 @@
 
 set -euo pipefail
 
-DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
-# shellcheck source=./lib.sh
-. "$DIR/lib.sh"
+# Use newlines as a separator by default
+: "${ISBN_RET_SEPARATOR:=$'\n'}"
 
-ISBN_RET_SEPARATOR=$'\n'
+# shellcheck source=./lib.sh
+. "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/lib.sh"
 
 for arg in "$@"; do
 	case $arg in

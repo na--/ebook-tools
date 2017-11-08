@@ -2,14 +2,13 @@
 
 set -euo pipefail
 
-DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
-# shellcheck source=./lib.sh
-. "$DIR/lib.sh"
+: "${FOLDER_PATTERN="%05d000"}"
+: "${START_NUMBER=0}"
+: "${OUTPUT_FOLDER=$(pwd)}"
+: "${FILES_PER_FOLDER=1000}"
 
-FOLDER_PATTERN="%05d000"
-START_NUMBER=0
-OUTPUT_FOLDER="$(pwd)"
-FILES_PER_FOLDER=1000
+# shellcheck source=./lib.sh
+. "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/lib.sh"
 
 for arg in "$@"; do
 	case $arg in
@@ -53,8 +52,6 @@ find "$@" -type f ! -name "*.meta" | sort "${FILE_SORT_FLAGS[@]}" | {
 			$DRY_RUN || mv --no-clobber "$file_to_move" "$OUTPUT_FOLDER/$current_folder/"
 			$DRY_RUN || mv --no-clobber "$file_to_move.meta" "$OUTPUT_FOLDER/$current_folder.meta/"
 		done
-
 	done
-
 }
 

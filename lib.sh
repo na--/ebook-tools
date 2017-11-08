@@ -2,27 +2,27 @@
 
 set -euo pipefail
 
-VERSION="0.2" #shellcheck disable=SC2034
+VERSION="0.3" #shellcheck disable=SC2034
 
 GREEN='\033[0;32m' #shellcheck disable=SC2034
 RED='\033[0;31m' #shellcheck disable=SC2034
 BOLD='\033[1m' #shellcheck disable=SC2034
 NC='\033[0m' #shellcheck disable=SC2034
 
-VERBOSE=false
-DRY_RUN=false
-SYMLINK_ONLY=false
-DELETE_METADATA=false
+: "${VERBOSE:=false}"
+: "${DRY_RUN:=false}"
+: "${SYMLINK_ONLY:=false}"
+: "${DELETE_METADATA:=false}"
 
-TESTED_ARCHIVE_EXTENSIONS='^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr|maff)$'
+: "${TESTED_ARCHIVE_EXTENSIONS:=^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr|maff)\$}"
 
 # This regular expression should match most ISBN10/13-like sequences in
 # texts. To minimize false-positives, matches should be passed through
 # is_isbn_valid() or another ISBN validator
-ISBN_REGEX='(?<![0-9])(977|978|979)?+(([ –—-]?[0-9][ –—-]?){9}[0-9xX])(?![0-9-])'
-ISBN_DIRECT_GREP_FILES='^text/(plain|xml|html)$'
-ISBN_IGNORED_FILES='^image/(gif|svg.+)|application/(x-shockwave-flash|CDFV2|vnd.ms-opentype|x-font-ttf|x-dosexec|vnd.ms-excel|x-java-applet)|audio/.+$'
-ISBN_RET_SEPARATOR=","
+: "${ISBN_REGEX:="(?<![0-9])(977|978|979)?+(([ –—-]?[0-9][ –—-]?){9}[0-9xX])(?![0-9-])"}"
+: "${ISBN_DIRECT_GREP_FILES:="^text/(plain|xml|html)\$"}"
+: "${ISBN_IGNORED_FILES:="^image/(gif|svg.+)|application/(x-shockwave-flash|CDFV2|vnd.ms-opentype|x-font-ttf|x-dosexec|vnd.ms-excel|x-java-applet)|audio/.+\$"}"
+: "${ISBN_RET_SEPARATOR:=,}"
 
 # These options specify if and how we should reoder ISBN_DIRECT_GREP files
 # before passing them to find_isbns(). If true, the first
@@ -30,43 +30,43 @@ ISBN_RET_SEPARATOR=","
 # the last ISBN_GREP_RF_REVERSE_LAST in reverse order and finally we pass the
 # remainder in the middle. There is no issue if files have fewer lines, there
 # will be no duplicate lines passed to grep.
-ISBN_GREP_REORDER_FILES=true
-ISBN_GREP_RF_SCAN_FIRST=400
-ISBN_GREP_RF_REVERSE_LAST=50
+: "${ISBN_GREP_REORDER_FILES:=true}"
+: "${ISBN_GREP_RF_SCAN_FIRST:=400}"
+: "${ISBN_GREP_RF_REVERSE_LAST:=50}"
 
 # Whether to use OCR on image files, pdfs and djvu files for ISBN searching
 # and conversion to txt
-OCR_ENABLED="false"
-OCR_ONLY_FIRST_LAST_PAGES="7,3"
-OCR_COMMAND="tesseract_wrapper"
+: "${OCR_ENABLED:=false}"
+: "${OCR_ONLY_FIRST_LAST_PAGES:=7,3}"
+: "${OCR_COMMAND:=tesseract_wrapper}"
 
 # Require Calibre 2.84+, previous versions will search in all enabled sources in the GUI
-ISBN_METADATA_FETCH_ORDER="Goodreads,Amazon.com,Google,ISBNDB,WorldCat xISBN,OZON.ru"
-ORGANIZE_WITHOUT_ISBN_SOURCES="Goodreads,Amazon.com,Google"
+: "${ISBN_METADATA_FETCH_ORDER:="Goodreads,Amazon.com,Google,ISBNDB,WorldCat xISBN,OZON.ru"}"
+: "${ORGANIZE_WITHOUT_ISBN_SOURCES:="Goodreads,Amazon.com,Google"}"
 
 # Should be matched against a lowercase filename.ext, lines that start with #
 # and newlines are removed. The default value should filter out most periodicals
-RE_YEAR="(19[0-9]|20[0-$(date '+%Y' | cut -b 3)])[0-9]"
-WITHOUT_ISBN_IGNORE=$(echo "
+: "${RE_YEAR:="(19[0-9]|20[0-$(date '+%Y' | cut -b 3)])[0-9]"}"
+: "${WITHOUT_ISBN_IGNORE:=$(echo "
 # Perdiodicals with filenames that contain something like 2010-11, 199010, 2015_7, 20110203:
-(^|[^0-9])${RE_YEAR}[ _\.-]*(0?[1-9]|10|11|12)([0-9][0-9])?($|[^0-9])
+(^|[^0-9])${RE_YEAR}[ _\.-]*(0?[1-9]|10|11|12)([0-9][0-9])?(\$|[^0-9])
 # Periodicals with month numbers before the year
-|(^|[^0-9])([0-9][0-9])?(0?[1-9]|10|11|12)[ _\.-]*${RE_YEAR}($|[^0-9])
+|(^|[^0-9])([0-9][0-9])?(0?[1-9]|10|11|12)[ _\.-]*${RE_YEAR}(\$|[^0-9])
 # Periodicals with months or issues
-|((^|[^a-z])(jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|june?|july?|aug(ust)?|sep(tember)?|oct(ober)?|nov(ember)?|dec(ember)?|mag(azine)?|issue|#[ _\.-]*[0-9]+)+($|[^a-z]))
+|((^|[^a-z])(jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|june?|july?|aug(ust)?|sep(tember)?|oct(ober)?|nov(ember)?|dec(ember)?|mag(azine)?|issue|#[ _\.-]*[0-9]+)+(\$|[^a-z]))
 # Periodicals with seasons and years
 |((spr(ing)?|sum(mer)?|aut(umn)?|win(ter)?|fall)[ _\.-]*${RE_YEAR})
 |(${RE_YEAR}[ _\.-]*(spr(ing)?|sum(mer)?|aut(umn)?|win(ter)?|fall))
-" | grep -v '^#' | tr -d '\n')
+" | grep -v '^#' | tr -d '\n')}"
 
 
-TOKEN_MIN_LENGTH=3
-TOKENS_TO_IGNORE="ebook|book|novel|series|ed(ition)?|vol(ume)?|${RE_YEAR}"
-FILE_SORT_FLAGS=()
+: "${TOKEN_MIN_LENGTH:=3}"
+: "${TOKENS_TO_IGNORE:="ebook|book|novel|series|ed(ition)?|vol(ume)?|${RE_YEAR}"}"
+[ -z "${FILE_SORT_FLAGS:+x}" ] && FILE_SORT_FLAGS=()
 
 #shellcheck disable=SC2016
-OUTPUT_FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]:+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]:+ (${d[PUBLISHED]%%-*})}${d[ISBN]:+ [${d[ISBN]}]}.${d[EXT]}"'
-OUTPUT_METADATA_EXTENSION="meta"
+[ -z "${OUTPUT_FILENAME_TEMPLATE:+x}" ] && OUTPUT_FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]:+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]:+ (${d[PUBLISHED]%%-*})}${d[ISBN]:+ [${d[ISBN]}]}.${d[EXT]}"'
+: "${OUTPUT_METADATA_EXTENSION:=meta}"
 
 
 # Handle parsing from arguments and setting all the common config vars

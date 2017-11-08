@@ -2,24 +2,23 @@
 
 set -euo pipefail
 
-DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+: "${CORRUPTION_CHECK_ONLY:=false}"
+: "${ORGANIZE_WITHOUT_ISBN:=false}"
+
+: "${OUTPUT_FOLDER:="$(pwd)"}"
+: "${OUTPUT_FOLDER_UNCERTAIN:=}"
+: "${OUTPUT_FOLDER_CORRUPT:=}"
+: "${OUTPUT_FOLDER_PAMPHLETS:=}"
+
+: "${PAMPHLET_INCLUDED_FILES:="\\.(png|jpg|jpeg|gif|bmp|svg|csv|pptx?)\$"}"
+: "${PAMPHLET_EXCLUDED_FILES:="\\.(chm|epub|cbr|mobi|lit|pdb)\$"}"
+: "${PAMPHLET_MAX_PDF_PAGES:=50}"
+: "${PAMPHLET_MAX_FILESIZE_KB:=250}"
+
+: "${DEBUG_PREFIX_LENGTH:=40}"
+
 # shellcheck source=./lib.sh
-. "$DIR/lib.sh"
-
-CORRUPTION_CHECK_ONLY=false
-ORGANIZE_WITHOUT_ISBN=false
-
-OUTPUT_FOLDER="$(pwd)"
-OUTPUT_FOLDER_UNCERTAIN=
-OUTPUT_FOLDER_CORRUPT=
-OUTPUT_FOLDER_PAMPHLETS=
-
-PAMPHLET_INCLUDED_FILES='\.(png|jpg|jpeg|gif|bmp|svg|csv|pptx?)$'
-PAMPHLET_EXCLUDED_FILES='\.(chm|epub|cbr|mobi|lit|pdb)$'
-PAMPHLET_MAX_PDF_PAGES=50
-PAMPHLET_MAX_FILESIZE_KB=250
-
-DEBUG_PREFIX_LENGTH=40
+. "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/lib.sh"
 
 print_help() {
 	echo "eBook Organizer v$VERSION"

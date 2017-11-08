@@ -2,12 +2,11 @@
 
 set -euo pipefail
 
-DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
-# shellcheck source=./lib.sh
-. "$DIR/lib.sh"
+# OCR all pages by default
+: "${OCR_ONLY_FIRST_LAST_PAGES:="false"}"
 
-# Overwrite the global variables for ISBN-optimized OCRs
-OCR_ONLY_FIRST_LAST_PAGES="false"
+# shellcheck source=./lib.sh
+. "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/lib.sh"
 
 tesseract_wrapper () {
 	tesseract "$1" stdout > "$2"

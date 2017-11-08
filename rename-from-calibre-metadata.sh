@@ -2,13 +2,11 @@
 
 set -euo pipefail
 
-DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+: "${OUTPUT_FOLDER:=""}"
+: "${SAVE_METADATA:="recreate"}" # possible values: none, opfcopy, recreate
+
 # shellcheck source=./lib.sh
-. "$DIR/lib.sh"
-
-
-OUTPUT_FOLDER=""
-SAVE_METADATA="recreate" # possible values: none, opfcopy, recreate
+. "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/lib.sh"
 
 for arg in "$@"; do
 	case $arg in
