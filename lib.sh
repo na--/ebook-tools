@@ -16,10 +16,25 @@ NC='\033[0m' #shellcheck disable=SC2034
 
 : "${TESTED_ARCHIVE_EXTENSIONS:=^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr|maff)\$}"
 
+# Horizontal whitespace and dash-like characters that are used for better
+# matching of ISBNs in badly OCR-ed books. Gathered from:
+# - https://en.wikipedia.org/wiki/Whitespace_character
+# - https://en.wikipedia.org/wiki/Dash#Similar_Unicode_characters
+# - https://en.wikipedia.org/wiki/Dash#Common_dashes
+: "${IGNORED_INSIDE_ISBN:="\\x{0009}\\x{0020}\\x{00A0}\\x{1680}\\x{2000}\
+\\x{2001}\\x{2002}\\x{2003}\\x{2004}\\x{2005}\\x{2006}\\x{2007}\\x{2008}\
+\\x{2009}\\x{200A}\\x{202F}\\x{205F}\\x{3000}\\x{180E}\\x{200B}\\x{200C}\
+\\x{200D}\\x{2060}\\x{FEFF}\\x{002D}\\x{005F}\\x{007E}\\x{00AD}\\x{00AF}\
+\\x{02C9}\\x{02CD}\\x{02D7}\\x{02DC}\\x{2010}\\x{2011}\\x{2012}\\x{203E}\
+\\x{2043}\\x{207B}\\x{208B}\\x{2212}\\x{223C}\\x{23AF}\\x{23E4}\\x{2500}\
+\\x{2796}\\x{2E3A}\\x{2E3B}\\x{10191}\\x{2012}\\x{2013}\\x{2014}\\x{2015}\
+\\x{2053}\\x{058A}\\x{05BE}\\x{1428}\\x{1B78}\\x{3161}\\x{30FC}\\x{FE63}\
+\\x{FF0D}\\x{10110}\\x{1104B}\\x{11052}\\x{110BE}\\x{1D360}"}"
+
 # This regular expression should match most ISBN10/13-like sequences in
 # texts. To minimize false-positives, matches should be passed through
 # is_isbn_valid() or another ISBN validator
-: "${ISBN_REGEX:="(?<![0-9])(977|978|979)?+(([ –—-]?[0-9][ –—-]?){9}[0-9xX])(?![0-9-])"}"
+: "${ISBN_REGEX:="(?<![0-9])(977|978|979)?+(([${IGNORED_INSIDE_ISBN}]?[0-9][${IGNORED_INSIDE_ISBN}]?){9}[0-9xX])(?![0-9])"}"
 : "${ISBN_DIRECT_GREP_FILES:="^text/(plain|xml|html)\$"}"
 : "${ISBN_IGNORED_FILES:="^image/(gif|svg.+)|application/(x-shockwave-flash|CDFV2|vnd.ms-opentype|x-font-ttf|x-dosexec|vnd.ms-excel|x-java-applet)|audio/.+\$"}"
 : "${ISBN_RET_SEPARATOR:=,}"
