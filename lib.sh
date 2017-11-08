@@ -513,6 +513,9 @@ search_file_for_isbns() {
 	mimetype="$(file --brief --mime-type "$file_path")"
 	decho "Ebook MIME type: $mimetype"
 	if [[ "$mimetype" =~ $ISBN_DIRECT_GREP_FILES ]]; then
+		# TODO: maybe decode entities in HTML/XML files since ISBNs can
+		# be intersected by &nbsp; or other escaped characters;
+		# recode/perl/php can be used for this
 		decho "Ebook is in text format, trying to find ISBN directly"
 		isbns="$(cat_file_for_isbn_grep "$file_path" | find_isbns)"
 		if [[ "$isbns" != "" ]]; then
