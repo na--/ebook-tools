@@ -36,10 +36,10 @@ NC='\033[0m' #shellcheck disable=SC2034
 # is_isbn_valid() or another ISBN validator
 : "${ISBN_REGEX:="(?<![0-9])(977|978|979)?+(([${IGNORED_INSIDE_ISBN}]?[0-9][${IGNORED_INSIDE_ISBN}]?){9}[0-9xX])(?![0-9])"}"
 : "${ISBN_DIRECT_GREP_FILES:="^text/(plain|xml|html)\$"}"
-: "${ISBN_IGNORED_FILES:="^image/(gif|svg.+)|application/(x-shockwave-flash|CDFV2|vnd.ms-opentype|x-font-ttf|x-dosexec|vnd.ms-excel|x-java-applet)|audio/.+\$"}"
+: "${ISBN_IGNORED_FILES:="^(image/(gif|svg.+)|application/(x-shockwave-flash|CDFV2|vnd.ms-opentype|x-font-ttf|x-dosexec|vnd.ms-excel|x-java-applet)|audio/.+|video/.+)\$"}"
 : "${ISBN_RET_SEPARATOR:=,}"
 
-# These options specify if and how we should reoder ISBN_DIRECT_GREP files
+# These options specify if and how we should reorder ISBN_DIRECT_GREP files
 # before passing them to find_isbns(). If true, the first
 # ISBN_GREP_RF_SCAN_FIRST lines of the files are passed as is, then we pass
 # the last ISBN_GREP_RF_REVERSE_LAST in reverse order and finally we pass the
@@ -97,7 +97,7 @@ handle_script_arg() {
 		--tested-archive-extensions=*) TESTED_ARCHIVE_EXTENSIONS="${arg#*=}" ;;
 		-i=*|--isbn-regex=*) ISBN_REGEX="${arg#*=}" ;;
 		--isbn-direct-grep-files=*) ISBN_DIRECT_GREP_FILES="${arg#*=}" ;;
-		--isbn-extraction-ignore=*) ISBN_IGNORED_FILES="${arg#*=}" ;;
+		--isbn-ignored-files=*) ISBN_IGNORED_FILES="${arg#*=}" ;;
 		--reorder-files-for-grep=*)
 			i="${arg#*=}"
 			if [[ "$arg" == "false" ]]; then
@@ -116,7 +116,7 @@ handle_script_arg() {
 		--tokens-to-ignore=*) TOKENS_TO_IGNORE="${arg#*=}" ;;
 
 		-mfo=*|--metadata-fetch-order=*) ISBN_METADATA_FETCH_ORDER="${arg#*=}" ;;
-		-owis=*|--organize--without--isbn-sources=*) ORGANIZE_WITHOUT_ISBN_SOURCES="${arg#*=}" ;;
+		-owis=*|--organize-without-isbn-sources=*) ORGANIZE_WITHOUT_ISBN_SOURCES="${arg#*=}" ;;
 		-wii=*|--without-isbn-ignore=*) WITHOUT_ISBN_IGNORE="${arg#*=}" ;;
 		-fsf=*|--file-sort-flags=*) FILE_SORT_FLAGS=(${arg#*=}) ;;
 
