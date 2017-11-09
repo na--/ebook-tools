@@ -145,7 +145,7 @@ All of these options are part of the common library and may affect some or all o
 
 * `-ome=<value>`, `--output-metadata-extension=<value>`; env. variable `OUTPUT_METADATA_EXTENSION`; default value `meta`
 
-  If `KEEP_METADATA` is enabled, this is the extension of the additional metadata file that is saved next to the newly renamed files.
+  If `KEEP_METADATA` is enabled, this is the extension of the additional metadata file that is saved next to each newly renamed file.
 
 
 #### Miscellaneous options
@@ -160,7 +160,9 @@ All of these options are part of the common library and may affect some or all o
 
 ## Script usage and options
 
-### `organize-ebooks.sh`
+### `organize-ebooks.sh [<OPTIONS>] folder-to-organize [...]`
+
+#### Description
 
 This is probably the most versatile script in the repository. It can automatically organize folders with huge quantities of unorganized ebook files. This is done by extracting ISBNs and/or metadata from the ebook files, downloading their full and hopefully correct metadata from online sources and auto-renaming the unorganized files with full and correct names and moving them to specified folders. Is supports virtually all ebook types, including ebooks in arbitrary or even nested archives (like the other scripts, it assumes that one file is one ebook, even if it's a huge archive). OCR can be used for scanned ebooks and corrupt ebooks and non-ebook documents (pamphlets) can be separated in specified folders. Most of the general options and flags above affect how this script operates, but there are also some specific options for it.
 
@@ -211,20 +213,39 @@ This is probably the most versatile script in the repository. It can automatical
   Is specified, pamphlets will be moved to this folder.
 
 
-#### Usage examples
+#### Examples
 
 TODO
 
-### `interactive-organizer.sh`
+### `interactive-organizer.sh [<OPTIONS>] folder-to-organize [...]`
 
-TODO: description, options, options inside the interactive session, demo screencast
+#### Description
+This script can be used to manually organize ebook files quickly. It can also be used to semi-automatically verify the ebooks organized by `organize-ebooks.sh` if the `KEEP_METADATA` was enabled so the new filenames can be compared with the old ones.
 
-* `-qm`, `--quick-mode`; env. variable `QUICK_MODE`; default value `false`
+#### Options
+
 * `-o=<value>`, `--output-folder=<value>`; env. variable `OUTPUT_FOLDERS`; default value `()` (an empty bash array)
+
+  You can use this argument multiple times (or use the array environment variable) to specify different folders to which you can quickly move ebook files. The first specified folder is the default.
+* `-qm`, `--quick-mode`; env. variable `QUICK_MODE`; default value `false`
+
+  This mode is useful when `organize-ebooks.sh` was called with `--keep-metadata` - ebooks that contain all of the tokens from the old file name in the new one are directly moved to the default output folder.
 * `-cmbd=<value>`, `--custom-move-base-dir=<value>`; env. variable `CUSTOM_MOVE_BASE_DIR`; empty default value
+
+  This option is used to specify a base directory in whose sub-folders files can more easily be moved during the interactive session because of tab autocompletion.
 * `-robd=<value>`, `--restore-original-base-dir=<value>`; env. variable `RESTORE_ORIGINAL_BASE_DIR`; empty default value
+
+  If you want to enable the option of restoring files to their original folders (or at least with the same folder structure), set this as the base path.
 * `-ddm=<value>`, `--diacritic-difference-masking=<value>`; env. variable `DIACRITIC_DIFFERENCE_MASKINGS`; complex default value
+
+  Which differences due to accents and other diacritical marks to be ignored when comparing tokens in `QUICK_MODE` and the interactive interface. The default value handles some basic cases like allowing letters like `á`, `à`, `â` and others instead of `a` and the reverse when comparing the old and new files.
 * `-mpw`, `--match-partial-words`; env. variable `MATCH_PARTIAL_WORDS`; default value `false`
+
+  Whether tokens from the old filenames that partially match in the new filesname to be accepted by `QUICK_MODE` and the interactive interface.
+
+#### Examples
+
+TODO
 
 ### `find-isbns.sh`
 
