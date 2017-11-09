@@ -54,7 +54,7 @@ Just clone the repository or download a [release](https://github.com/na--/ebook-
 
 # Usage, options and configuration
 
-Scripts that work with multiple files **recursively scan the supplied folders** and **assume that one file is one ebook**. **Ebooks that consist of multiple files should be compressed in a single file** archive. The archive type does not matter, it can be `.zip`, `.rar`, `.tar`, `.7z` and others * all supported archive types by `7zip` are fine.
+Scripts that work with multiple files **recursively scan the supplied folders** and **assume that one file is one ebook**. **Ebooks that consist of multiple files should be compressed in a single file** archive. The archive type does not matter, it can be `.zip`, `.rar`, `.tar`, `.7z` and others - all supported archive types by `7zip` are fine.
 
 All of the options documented below can either be passed to the scripts via command-line parameters or via environment variables. Command-line parameters supersede environment variables. Most parameters are not required and if nothing is specified, the default value will be used.
 
@@ -80,7 +80,7 @@ Options related to extracting ISBNs from files and finding metadata by ISBN:
 
 * `-i=<value>`, `--isbn-regex=<value>`; env. variable `ISBN_REGEX`; see default value in `lib.sh`
 
-  This is the regular expression used to match ISBN-like numbers in the supplied books. It is matched with `grep -P`, so look-ahead and look-behind can be used. Also it is purposefully a bit loose (i.e. it can match non-ISBN numbers), since the found numbers will be checked for validity. Due to unicode handling, the default value is too long for the readme, you can find it in `lib.sh`.
+  This is the regular expression used to match ISBN-like numbers in the supplied books. It is matched with `grep -P`, so look-ahead and look-behind can be used. Also it is purposefully a bit loose (i.e. it can match some non-ISBN numbers), since the found numbers will be checked for validity. Due to unicode handling, the default value is too long for the readme, you can find it in `lib.sh`.
 * `--isbn-direct-grep-files=<value>`; env. variable `ISBN_DIRECT_GREP_FILES`; default value `^text/(plain|xml|html)$`
 
   This is a regular expression that is matched against the MIME type of the searched files. Matching files are searched directly for ISBNs, without converting or OCR-ing them to `.txt` first.
@@ -99,14 +99,32 @@ Options related to extracting ISBNs from files and finding metadata by ISBN:
 Options and flags for OCR:
 
 * `-ocr=<value>`, `--ocr-enabled=<value>`; env. variable `OCR_ENABLED`; default value `false`
-* `-ocrop=<value>`, `--ocr-only-first-last-pages=<value>`; env. variable `OCR_ONLY_FIRST_LAST_PAGES`; default value `7,3`
+
+  Whether to enable OCR for `.pdf`, `.djvu` and image files. It is disabled by default and can be used differently in two scripts:
+  - `organize-ebooks.sh` can use OCR for finding ISBNs in scanned books. Setting the value to `true` will cause it to use OCR for books that failed to be converted to `.txt` or were converted to empty files by the simple conversion tools (`ebook-convert`, `pdftotext`, `djvutxt`). Setting the value to `always` will cause it to use OCR even when the simple tools produced a non-empty result, if there were no ISBNs in it.
+  - `convert-to-txt.sh` can user OCR for the conversion to `.txt`. Setting the value to `true` will cause it to use OCR for books that failed to be converted to `.txt` or were converted to empty files by the simple conversion tools. Setting it to `always` will cause it to first try OCR-ing the books before trying the simple conversion tools.
+
+* `-ocrop=<value>`, `--ocr-only-first-last-pages=<value>`; env. variable `OCR_ONLY_FIRST_LAST_PAGES`; default value `7,3` (except for `convert-to-txt.sh` where it's `false`)
+
+  Value `n,m` instructs the scripts to convert only the first `n` and last `m` pages when OCR-ing ebooks. This is done because OCR is a slow resource-intensive process and ISBN numbers are usually at the beginning or at the end of books. Setting the value to `false` disables this optimization and is the default for `convert-to-txt.sh`, where we probably want the whole book to be converted.
+
 * `-ocrc=<value>`, `--ocr-command=<value>`; env. variable `OCR_COMMAND`; default value `tesseract_wrapper`
+
+  This allows us to define a hook for using custom OCR settings or software. The default value is just a wrapper that allows us to use both tesseract 3 and 4 with some predefined settings. You can use a custom bash function or shell script - the first argument is the input image (books are OCR-ed page by page) and the second argument is the file you have to write the output text to.
 
 Options related to extracting and searching for non-ISBN metadata:
 
 * `--token-min-length=<value>`; env. variable `TOKEN_MIN_LENGTH`; default value `3`
+
+  When files and file metadata are parsed, they are split into words (or more precisely, either alpha or numeric tokens) and ones shorter than this value are ignored. By default, single and two character number and words are ignored.
 * `--tokens-to-ignore=<value>`; env. variable `TOKENS_TO_IGNORE`; complex default value
+
+  A regular expression that is matched against the filename/author/title tokens and matching tokens are ignored. The default regular expression includes common words that probably hinder online metadata searching like `book`, `novel`, `series`, `volume` and others, as well as probable publication years like (so `1999` is ignored while `2033` is not). You can see it in `lib.sh`.
 * `-owis=<value>`, `--organize-without-isbn-sources=<value>`; env. variable `ORGANIZE_WITHOUT_ISBN_SOURCES`; default value `Goodreads,Amazon.com,Google`
+
+  This option allows you to specify the online metadata sources in which the scripts will try searching for books by non-ISBN metadata (i.e. author and title). The actual search is done by calibre's `fetch-ebook-metadata` command-line application, so any custom calibre metadata [plugins](https://plugins.calibre-ebook.com/) can also be used. To see the currently available options, run `fetch-ebook-metadata --help` and check the description for the `--allowed-plugin` option.
+
+  In contrast to searching by ISBNs, searching by author and title is done concurrently in all of the allowed online metadata sources. The number of sources is smaller because some metadata sources can be searched only by ISBN or return many false-positives when searching by title and author.
 
 Options related to the input and output files:
 
@@ -139,7 +157,7 @@ TODO: description, options, examples, demo screencast
 * `-ofc=<value>`, `--output-folder-corrupt=<value>`; env. variable `OUTPUT_FOLDER_CORRUPT`; empty default value
 * `-ofp=<value>`, `--output-folder-pamphlets=<value>`; env. variable `OUTPUT_FOLDER_PAMPHLETS`; empty default value
 * `--debug-prefix-length=<value>`; env. variable `DEBUG_PREFIX_LENGTH`; default value `40`
-* `--tested-archive-extensions=<value>`; env. variable `TESTED_ARCHIVE_EXTENSIONS`; default value `^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr|cbz|maff|iso)$}`
+* `--tested-archive-extensions=<value>`; env. variable `TESTED_ARCHIVE_EXTENSIONS`; default value `^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr|cbz|maff|iso)$`
 * `-wii=<value>`, `--without-isbn-ignore=<value>`; env. variable `WITHOUT_ISBN_IGNORE`; complex default value
 
 

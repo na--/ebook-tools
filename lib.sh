@@ -16,8 +16,8 @@ NC='\033[0m' #shellcheck disable=SC2034
 
 : "${TESTED_ARCHIVE_EXTENSIONS:=^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr|cbz|maff|iso)\$}"
 
-# Horizontal whitespace and dash-like characters that are used for better
-# matching of ISBNs in badly OCR-ed books. Gathered from:
+# Horizontal whitespace and dash-like ASCII and Unicode characters that are
+# used for better matching of ISBNs in (badly) OCR-ed books. Gathered from:
 # - https://en.wikipedia.org/wiki/Whitespace_character
 # - https://en.wikipedia.org/wiki/Dash#Similar_Unicode_characters
 # - https://en.wikipedia.org/wiki/Dash#Common_dashes
