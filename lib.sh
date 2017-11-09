@@ -400,7 +400,7 @@ convert_to_txt() {
 }
 
 tesseract_wrapper () {
-	tesseract "$1" stdout --psm 12 > "$2"
+	tesseract "$1" stdout --psm 12 > "$2" || exit 1
 }
 
 ocr_file() {
