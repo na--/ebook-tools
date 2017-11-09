@@ -60,7 +60,9 @@ All of the options documented below can either be passed to the scripts via comm
 
 ## General options
 
-All of these options are part of the common library and may affect some or all of the scripts. General control flags:
+All of these options are part of the common library and may affect some or all of the scripts.
+
+#### General control flags:
 
 * `-v`, `--verbose`; env. variable `VERBOSE`; default value `false`
 
@@ -76,7 +78,7 @@ All of these options are part of the common library and may affect some or all o
 
   Do not delete the gathered metadata for the organized ebooks, instead save it in an accompanying file together with each renamed book. It is very useful for semi-automatic verification of the organized files with `interactive-organizer.sh` or for additional verification, indexing or processing at a later date.
 
-Options related to extracting ISBNs from files and finding metadata by ISBN:
+#### Options related to extracting ISBNs from files and finding metadata by ISBN:
 
 * `-i=<value>`, `--isbn-regex=<value>`; env. variable `ISBN_REGEX`; see default value in `lib.sh`
 
@@ -96,7 +98,7 @@ Options related to extracting ISBNs from files and finding metadata by ISBN:
 
   This option allows you to specify the online metadata sources and order in which the scripts will try searching in them for books by their ISBN. The actual search is done by calibre's `fetch-ebook-metadata` command-line application, so any custom calibre metadata [plugins](https://plugins.calibre-ebook.com/) can also be used. To see the currently available options, run `fetch-ebook-metadata --help` and check the description for the `--allowed-plugin` option.
 
-Options and flags for OCR:
+#### Options for [OCR](https://en.wikipedia.org/wiki/Optical_character_recognition):
 
 * `-ocr=<value>`, `--ocr-enabled=<value>`; env. variable `OCR_ENABLED`; default value `false`
 
@@ -112,7 +114,7 @@ Options and flags for OCR:
 
   This allows us to define a hook for using custom OCR settings or software. The default value is just a wrapper that allows us to use both tesseract 3 and 4 with some predefined settings. You can use a custom bash function or shell script - the first argument is the input image (books are OCR-ed page by page) and the second argument is the file you have to write the output text to.
 
-Options related to extracting and searching for non-ISBN metadata:
+#### Options related to extracting and searching for non-ISBN metadata:
 
 * `--token-min-length=<value>`; env. variable `TOKEN_MIN_LENGTH`; default value `3`
 
@@ -126,13 +128,30 @@ Options related to extracting and searching for non-ISBN metadata:
 
   In contrast to searching by ISBNs, searching by author and title is done concurrently in all of the allowed online metadata sources. The number of sources is smaller because some metadata sources can be searched only by ISBN or return many false-positives when searching by title and author.
 
-Options related to the input and output files:
+#### Options related to the input and output files:
 
 * `-fsf=<value>`, `--file-sort-flags=<value>`; env. variable `FILE_SORT_FLAGS`; default value `()` (an empty bash array)
-* `-oft=<value>`, `--output-filename-template=<value>`; env. variable `OUTPUT_FILENAME_TEMPLATE`; default value `"${d[AUTHORS]// & /, } - ${d[SERIES]:+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]:+ (${d[PUBLISHED]%%-*})}${d[ISBN]:+ [${d[ISBN]}]}.${d[EXT]}"`
+
+  A list with the [sort options](https://www.gnu.org/software/coreutils/manual/html_node/sort-invocation.html) that will be used every time multiple files are processed (i.e. in every script except `convert-to-txt.sh`).
+
+* `-oft=<value>`, `--output-filename-template=<value>`; env. variable `OUTPUT_FILENAME_TEMPLATE`; default value:
+  ```bash
+  "${d[AUTHORS]// & /, } - ${d[SERIES]:+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]:+ (${d[PUBLISHED]%%-*})}${d[ISBN]:+ [${d[ISBN]}]}.${d[EXT]}"
+  ```
+  This specifies how the filenames of the organized files will look. It is a bash string that is evaluated so it can be very flexible (and also potentially unsafe). The book metadata is present in a hashmap with name `d` and uppercase keys. By default the organized files start with the comma-separated author name(s), followed by the book series name and number in square brackets (if present), followed by the book title, the year of publication (if present), the ISBN(s) (if present) and the original extension. Here are are how output filenames using the default template look:
+  ```text
+  Cory Doctorow - [Little Brother #1] - Little Brother (2008) [0765319853].pdf
+  Cory Doctorow - [Little Brother #2] - Homeland (2013) [9780765333698].epub
+  Eliezer Yudkowsky - Harry Potter and the Methods of Rationality (2015).epub
+  Lawrence Lessig - Remix - Making Art and Commerce Thrive in the Hybrid Economy (2008) [9781594201721].djvu
+  Rick Falkvinge - Swarmwise (2013) [1463533152].pdf
+  ```
+
 * `-ome=<value>`, `--output-metadata-extension=<value>`; env. variable `OUTPUT_METADATA_EXTENSION`; default value `meta`
 
-## Details
+  If `KEEP_METADATA` is enabled, this is the extension of the additional metadata file that is saved next to the newly renamed files.
+
+## Implementation details
 
 ### Searching for ISBNs in files
 
