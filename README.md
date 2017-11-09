@@ -17,7 +17,7 @@ This is a collection of bash shell scripts for automated and semi-automated orga
   - Ebooks can be converted to `.txt` and shown with `less` directly in the current terminal or they can be opened with an external viewer without exiting from the interactive organization.
   - Books can be semi-automatically renamed by looking up their metadata (by ISBN or title) online.
 
-- `find-isbns.sh` tries to find [valid ISBNs](https://en.wikipedia.org/wiki/International_Standard_Book_Number#Check_digits) inside a file or in STDIN if no file was specified. Searching for ISBNs in files uses progressively more resource-intensive methods until some ISBNs are found, see the documentation (below](#searching-for-isbns-in-files) for more details.
+- `find-isbns.sh` tries to find [valid ISBNs](https://en.wikipedia.org/wiki/International_Standard_Book_Number#Check_digits) inside a file or in `stdin` if no file was specified. Searching for ISBNs in files uses progressively more resource-intensive methods until some ISBNs are found, see the documentation (below](#searching-for-isbns-in-files) for more details.
 - `convert-to-txt.sh` converts the supplied file to a text file. It can optionally also use automatic OCR for supported types.
 - `rename-calibre-library.sh` traverses a calibre library folder and renames all the book files by reading their metadata from calibre's `metadata.opf` files
 - `split-into-folders.sh` splits the supplied ebook files (and the accompanying metadata files if present) into auto-incremented folders that each contain the specified number of files.
@@ -45,7 +45,7 @@ The scripts are only tested on linux, though they should work on any *nix system
 sudo pacman -S bash gawk sed grep calibre p7zip tesseract tesseract-data-eng perl-xml-xpath poppler catdoc djvulibre
 ```
 
-*Note: you can probably get much better OCR results by using the unstable 4.0 version of Tesseract. It is present in the [AUR](https://aur.archlinux.org/packages/tesseract-git/) or you can easily make a package like [this](https://github.com/na--/custom-archlinux-packages/blob/master/tesseract-4-bundle-git/PKGBUILD) yourself*
+*Note: you can probably get much better OCR results by using the unstable 4.0 version of Tesseract. It is present in the [AUR](https://aur.archlinux.org/packages/tesseract-git/) or you can easily make a package like [this](https://github.com/na--/custom-archlinux-packages/blob/master/tesseract-4-bundle-git/PKGBUILD) yourself.*
 
 ## Installation
 
@@ -54,22 +54,41 @@ Just clone the repository or download a [release](https://github.com/na--/ebook-
 
 # Usage, options and configuration
 
+Scripts that work with multiple files **recursively scan the supplied folders** and **assume that one file is one ebook**. **Ebooks that consist of multiple files should be compressed in a single file** archive. The archive type does not matter, it can be `.zip`, `.rar`, `.tar`, `.7z` and others - all supported archive types by `7zip` are fine.
+
+All of the options documented below can either be passed to the scripts via command-line parameters or via environment variables. Command-line parameters supersede environment variables. Most parameters are not required and if nothing is specified, the default value will be used.
+
 ## General options
 
-TODO
+These options are part of the common library and may affect all of the scripts:
+
+- `-v`, `--verbose`; env. variable `VERBOSE`; default value is `false`
+
+  Whether debug messages to be displayed on `stderr`. Passing the parameter or changing `VERBOSE` to `true` and piping the `stderr` to a file is useful for debugging or keeping a record of exactly what happens without cluttering and overwhelming the normal execution output.
+- `-d`, `--dry-run`; env. variable `DRY_RUN`; default value is `false`
+
+  If this is enabled, no file operations will actually be executed.
+- `-sl`, `--symlink-only`; env. variable `SYMLINK_ONLY`; default value is `false`
+
+  Instead of moving the ebook files, create symbolic links to them.
+
+- `-km`, `--keep-metadata`; env. variable `KEEP_METADATA`; default value is `false`
+
+  Do not delete the gathered metadata for the organized ebooks, instead save it in an accompanying file together with the renamed book. It is very useful for semi-automatic verification of the organized files with `interactive-organizer.sh` or for additional verification, indexing or processing at a later date.
+
+TODO: add the rest
 
 ## Details
 
 ### Searching for ISBNs in files
 
 There are several different ways that a specific file can be searched for ISBN numbers. Each step requires progressively more "expensive" operations. If at some point ISBNs are found, they are returned or used without trying the remaining strategies. The regular expression used for matching ISBNs is in `ISBN_REGEX` (in `lib.sh`) and all matched numbers are verified for correct ISBN [check numbers](https://en.wikipedia.org/wiki/International_Standard_Book_Number#Check_digits). These are the steps:
-1. Check the supplied file name for ISBNs (the path is ignored)
-2. If the [MIME type](https://en.wikipedia.org/wiki/MIME) of the file matches `ISBN_DIRECT_GREP_FILES`, search the file contents directly for ISBNs
-3. If the MIME type matches `ISBN_IGNORED_FILES`, the search stops with no results
-4. Check the file metadata from calibre's `ebook-meta` tool for ISBNs
-5. Try to extract the file as an archive with `7z`; if successful, recursively repeat the above steps for all the extracted files
-6. If the file is not an archive, try to convert it to a `.txt` file
-7. If OCR is enabled and the simple conversion to `.txt` fails or if its result is empty try OCR-ing the file. If the result is non-empty but does not contain ISBNs and `OCR_ENABLED` is set to `always`, run OCR as well.
+1. Check the supplied file name for ISBNs (the path is ignored).
+2. If the [MIME type](https://en.wikipedia.org/wiki/MIME) of the file matches `ISBN_DIRECT_GREP_FILES`, search the file contents directly for ISBNs. If the MIME type matches `ISBN_IGNORED_FILES`, the search stops with no results.
+3. Check the file metadata from calibre's `ebook-meta` tool for ISBNs.
+4. Try to extract the file as an archive with `7z`. If successful, recursively repeat all of these steps for all the extracted files.
+5. If the file is not an archive, try to convert it to a `.txt` file. Use calibre's `ebook-convert` unless a faster alternative is present - `pdftotext` from `poppler` for `.pdf` files, `catdoc` for `.doc` files or `djvutxt` for `.djvu` files.
+6. If OCR is enabled and the simple conversion to `.txt` fails or if its result is empty try OCR-ing the file. If the result is non-empty but does not contain ISBNs and `OCR_ENABLED` is set to `always`, run OCR as well.
 
 ## Script usage and options
 
