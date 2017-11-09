@@ -98,21 +98,21 @@ Options related to extracting ISBNs from files and finding metadata by ISBN:
 
 Options and flags for OCR:
 
-* `-ocr=*|--ocr-enabled=*) OCR_ENABLED="${arg#*=}" ;;`
-* `-ocrop=*|--ocr-only-first-last-pages=*) OCR_ONLY_FIRST_LAST_PAGES="${arg#*=}" ;;`
-* `-ocrc=*|--ocr-command=*) OCR_COMMAND="${arg#*=}" ;;`
+* `-ocr=<value>`, `--ocr-enabled=<value>`; env. variable `OCR_ENABLED`; default value `false`
+* `-ocrop=<value>`, `--ocr-only-first-last-pages=<value>`; env. variable `OCR_ONLY_FIRST_LAST_PAGES`; default value `7,3`
+* `-ocrc=<value>`, `--ocr-command=<value>`; env. variable `OCR_COMMAND`; default value `tesseract_wrapper`
 
 Options related to extracting and searching for non-ISBN metadata:
 
-* `--token-min-length=*) TOKEN_MIN_LENGTH="${arg#*=}" ;;`
-* `--tokens-to-ignore=*) TOKENS_TO_IGNORE="${arg#*=}" ;;`
-* `-owis=*|--organize-without-isbn-sources=*) ORGANIZE_WITHOUT_ISBN_SOURCES="${arg#*=}" ;;`
+* `--token-min-length=<value>`; env. variable `TOKEN_MIN_LENGTH`; default value `3`
+* `--tokens-to-ignore=<value>`; env. variable `TOKENS_TO_IGNORE`; complex default value
+* `-owis=<value>`, `--organize-without-isbn-sources=<value>`; env. variable `ORGANIZE_WITHOUT_ISBN_SOURCES`; default value `Goodreads,Amazon.com,Google`
 
 Options related to the input and output files:
 
-* `-fsf=*|--file-sort-flags=*) FILE_SORT_FLAGS=(${arg#*=}) ;;`
-* `-oft=*|--output-filename-template=*) OUTPUT_FILENAME_TEMPLATE="${arg#*=}" ;;`
-* `-ome=*|--output-metadata-extension=*) OUTPUT_METADATA_EXTENSION="${arg#*=}" ;;`
+* `-fsf=<value>`, `--file-sort-flags=<value>`; env. variable `FILE_SORT_FLAGS`; default value `()` (an empty bash array)
+* `-oft=<value>`, `--output-filename-template=<value>`; env. variable `OUTPUT_FILENAME_TEMPLATE`; default value `"${d[AUTHORS]// & /, } - ${d[SERIES]:+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]:+ (${d[PUBLISHED]%%-*})}${d[ISBN]:+ [${d[ISBN]}]}.${d[EXT]}"`
+* `-ome=<value>`, `--output-metadata-extension=<value>`; env. variable `OUTPUT_METADATA_EXTENSION`; default value `meta`
 
 ## Details
 
@@ -132,17 +132,33 @@ There are several different ways that a specific file can be searched for ISBN n
 
 TODO: description, options, examples, demo screencast
 
-* `--tested-archive-extensions=*) TESTED_ARCHIVE_EXTENSIONS="${arg#*=}" ;;`
-* `-wii=*|--without-isbn-ignore=*) WITHOUT_ISBN_IGNORE="${arg#*=}" ;;`
+* `-cco`, `--corruption-check-only`; env. variable `CORRUPTION_CHECK_ONLY`; default value `false`
+* `-owi`, `--organize--without--isbn`; env. variable `ORGANIZE_WITHOUT_ISBN`; default value `false`
+* `-o=<value>`, `--output-folder=<value>`; env. variable `OUTPUT_FOLDER`; default value is the current working directory (check with `pwd`)
+* `-ofu=<value>`, `--output-folder-uncertain=<value>`; env. variable `OUTPUT_FOLDER_UNCERTAIN`; empty default value
+* `-ofc=<value>`, `--output-folder-corrupt=<value>`; env. variable `OUTPUT_FOLDER_CORRUPT`; empty default value
+* `-ofp=<value>`, `--output-folder-pamphlets=<value>`; env. variable `OUTPUT_FOLDER_PAMPHLETS`; empty default value
+* `--debug-prefix-length=<value>`; env. variable `DEBUG_PREFIX_LENGTH`; default value `40`
+* `--tested-archive-extensions=<value>`; env. variable `TESTED_ARCHIVE_EXTENSIONS`; default value `^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr|cbz|maff|iso)$}`
+* `-wii=<value>`, `--without-isbn-ignore=<value>`; env. variable `WITHOUT_ISBN_IGNORE`; complex default value
 
 
 ### `interactive-organizer.sh`
 
 TODO: description, options, options inside the interactive session, demo screencast
 
+* `-qm`, `--quick-mode`; env. variable `QUICK_MODE`; default value `false`
+* `-o=<value>`, `--output-folder=<value>`; env. variable `OUTPUT_FOLDERS`; default value `()` (an empty bash array)
+* `-cmbd=<value>`, `--custom-move-base-dir=<value>`; env. variable `CUSTOM_MOVE_BASE_DIR`; empty default value
+* `-robd=<value>`, `--restore-original-base-dir=<value>`; env. variable `RESTORE_ORIGINAL_BASE_DIR`; empty default value
+* `-ddm=<value>`, `--diacritic-difference-masking=<value>`; env. variable `DIACRITIC_DIFFERENCE_MASKINGS`; complex default value
+* `-mpw`, `--match-partial-words`; env. variable `MATCH_PARTIAL_WORDS`; default value `false`
+
 ### `find-isbns.sh`
 
 TODO: description, options, example with fetch-ebook-metadata
+
+* `-irs=<value>`, `--isbn-return-separator=<value>`; env. variable `ISBN_RET_SEPARATOR`; default value `$'\n'` (a new line)
 
 ### `convert-to-txt.sh`
 
@@ -152,15 +168,28 @@ TODO: description, options
 
 TODO: description, options, demo screencast
 
+* `-o=<value>`, `--output-folder=<value>`; env. variable `OUTPUT_FOLDER`; the default value is the current working directory (check with `pwd`)
+* `-sm=<value>`, `--save-metadata=<value>`; env. variable `SAVE_METADATA`; default value `recreate`
+
 ### `split-into-folders.sh`
 
 TODO: description, options
+
+* `-o=<value>`, `--output-folder=<value>`; env. variable `OUTPUT_FOLDER`; the default value is the current working directory (check with `pwd`)
+* `-sn=<value>`, `--start-number=<value>`; env. variable `START_NUMBER`; default value `0`
+* `-fp=<value>`, `--folder-pattern=<value>`; env. variable `FOLDER_PATTERN`; default value `%05d000`
+* `-fpf=<value>`, `--files-per-folder=<value>`; env. variable `FILES_PER_FOLDER`; default value `1000`
 
 # Limitations
 
 - Automatic organization can be slow - all the scripts are synchronous and single-threaded and metadata lookup by ISBN is not done concurrently. This is intentional so that the execution can be easily traced and so that the online services are not hammered by requests. If you want to optimize the performance, run multiple copies of the script **on different folders**.
 
 - The default setting for `ISBN_METADATA_FETCH_ORDER` includes two non-standard metadata sources: Goodreads and WorldCat xISBN. For best results, install the plugins ([1](https://www.mobileread.com/forums/showthread.php?t=130638), [2](https://github.com/na--/calibre-worldcat-xisbn-metadata-plugin)) for them in calibre and fine-tune the settings for metadata sources in the calibre GUI.
+
+# Roadmap
+
+- Add hooks for different actions, for example the ability to call an external script for organizing an ebook instead of directly renaming/symlinking it.
+- Maybe rewrite the scripts in a more portable (or at least saner) language than bash...
 
 # Security and safety
 

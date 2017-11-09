@@ -2,10 +2,10 @@
 
 set -euo pipefail
 
-: "${FOLDER_PATTERN="%05d000"}"
-: "${START_NUMBER=0}"
-: "${OUTPUT_FOLDER=$(pwd)}"
-: "${FILES_PER_FOLDER=1000}"
+: "${FOLDER_PATTERN:="%05d000"}"
+: "${START_NUMBER:=0}"
+: "${OUTPUT_FOLDER:=$(pwd)}"
+: "${FILES_PER_FOLDER:=1000}"
 
 # shellcheck source=./lib.sh
 . "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/lib.sh"

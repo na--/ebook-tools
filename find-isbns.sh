@@ -10,6 +10,7 @@ set -euo pipefail
 
 for arg in "$@"; do
 	case $arg in
+		-irs=*|--isbn-return-separator=*) ISBN_RET_SEPARATOR="${arg#*=}" ;;
 		-*|--*) handle_script_arg "$arg" ;;
 		*) break ;;
 	esac
@@ -17,8 +18,7 @@ for arg in "$@"; do
 done
 unset -v arg
 
-#TODO: add options, help
-#TODO: add option to limit the number of ISBNs?
+#TODO:  help
 
 if [[ "$#" == "0" ]]; then
 	find_isbns

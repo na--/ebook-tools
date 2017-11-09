@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-: "${OUTPUT_FOLDER:=""}"
+: "${OUTPUT_FOLDER:=$(pwd)}"
 : "${SAVE_METADATA:="recreate"}" # possible values: none, opfcopy, recreate
 
 # shellcheck source=./lib.sh

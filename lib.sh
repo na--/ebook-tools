@@ -14,7 +14,7 @@ NC='\033[0m' #shellcheck disable=SC2034
 : "${SYMLINK_ONLY:=false}"
 : "${KEEP_METADATA:=false}"
 
-: "${TESTED_ARCHIVE_EXTENSIONS:=^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr|maff)\$}"
+: "${TESTED_ARCHIVE_EXTENSIONS:=^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr|cbz|maff|iso)\$}"
 
 # Horizontal whitespace and dash-like characters that are used for better
 # matching of ISBNs in badly OCR-ed books. Gathered from:
