@@ -130,10 +130,6 @@ All of these options are part of the common library and may affect some or all o
 
 #### Options related to the input and output files:
 
-* `-fsf=<value>`, `--file-sort-flags=<value>`; env. variable `FILE_SORT_FLAGS`; default value `()` (an empty bash array)
-
-  A list with the [sort options](https://www.gnu.org/software/coreutils/manual/html_node/sort-invocation.html) that will be used every time multiple files are processed (i.e. in every script except `convert-to-txt.sh`).
-
 * `-oft=<value>`, `--output-filename-template=<value>`; env. variable `OUTPUT_FILENAME_TEMPLATE`; default value:
   ```bash
   "${d[AUTHORS]// & /, } - ${d[SERIES]:+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]:+ (${d[PUBLISHED]%%-*})}${d[ISBN]:+ [${d[ISBN]}]}.${d[EXT]}"
@@ -151,6 +147,18 @@ All of these options are part of the common library and may affect some or all o
 
   If `KEEP_METADATA` is enabled, this is the extension of the additional metadata file that is saved next to the newly renamed files.
 
+
+#### Miscellaneous options
+
+* `-fsf=<value>`, `--file-sort-flags=<value>`; env. variable `FILE_SORT_FLAGS`; default value `()` (an empty bash array)
+
+  A list with the [sort options](https://www.gnu.org/software/coreutils/manual/html_node/sort-invocation.html) that will be used every time multiple files are processed (i.e. in every script except `convert-to-txt.sh`).
+* `--debug-prefix-length=<value>`; env. variable `DEBUG_PREFIX_LENGTH`; default value `40`
+
+  The length of the debug prefix used by the some scripts in the output when `VERBOSE` mode is enabled.
+
+
+
 ## Implementation details
 
 ### Searching for ISBNs in files
@@ -167,18 +175,58 @@ There are several different ways that a specific file can be searched for ISBN n
 
 ### `organize-ebooks.sh`
 
-TODO: description, options, examples, demo screencast
+This is probably the most versatile script in the repository. It can automatically organize folders with huge quantities of unorganized ebook files. This is done by extracting ISBNs and/or metadata from the ebook files, downloading their full and hopefully correct metadata from online sources and auto-renaming the unorganized files with full and correct names and moving them to specified folders. Is supports virtually all ebook types, including ebooks in arbitrary or even nested archives (like the other scripts, it assumes that one file is one ebook, even if it's a huge archive). OCR can be used for scanned ebooks and corrupt ebooks and non-ebook documents (pamphlets) can be separated in specified folders. Most of the general options and flags above affect how this script operates, but there are also some specific options for it.
+
+#### Specific options for organizing files
 
 * `-cco`, `--corruption-check-only`; env. variable `CORRUPTION_CHECK_ONLY`; default value `false`
-* `-owi`, `--organize--without--isbn`; env. variable `ORGANIZE_WITHOUT_ISBN`; default value `false`
-* `-o=<value>`, `--output-folder=<value>`; env. variable `OUTPUT_FOLDER`; default value is the current working directory (check with `pwd`)
-* `-ofu=<value>`, `--output-folder-uncertain=<value>`; env. variable `OUTPUT_FOLDER_UNCERTAIN`; empty default value
-* `-ofc=<value>`, `--output-folder-corrupt=<value>`; env. variable `OUTPUT_FOLDER_CORRUPT`; empty default value
-* `-ofp=<value>`, `--output-folder-pamphlets=<value>`; env. variable `OUTPUT_FOLDER_PAMPHLETS`; empty default value
-* `--debug-prefix-length=<value>`; env. variable `DEBUG_PREFIX_LENGTH`; default value `40`
+
+  Do not organize or rename files, just check them for corruption (ex. zero-filled files, corrupt archives or broken `.pdf` files). Useful with the `OUTPUT_FOLDER_CORRUPT` option.
+
 * `--tested-archive-extensions=<value>`; env. variable `TESTED_ARCHIVE_EXTENSIONS`; default value `^(7z|bz2|chm|arj|cab|gz|tgz|gzip|zip|rar|xz|tar|epub|docx|odt|ods|cbr|cbz|maff|iso)$`
+
+  A regular expression that specifies which file extensions will be tested with `7z t` for corruption.
+
+* `-owi`, `--organize--without--isbn`; env. variable `ORGANIZE_WITHOUT_ISBN`; default value `false`
+
+  Specify whether the script will try to organize ebooks if there were no ISBN found in the book or if no metadata was found online with the retrieved ISBNs. If enabled, the script will first try to use calibre's `ebook-meta` command-line tool to extract the author and title metadata from the ebook file. The script will try searching the online metadata sources (`ORGANIZE_WITHOUT_ISBN_SOURCES`) by the extracted author & title and just by title. If there is no useful metadata or nothing is found online, the script will try to use the filename for searching.
+
 * `-wii=<value>`, `--without-isbn-ignore=<value>`; env. variable `WITHOUT_ISBN_IGNORE`; complex default value
 
+  This is a regular expression that is matched against lowercase filenames. All files that do not contain ISBNs are matched against it and matching files are ignored by the script, even if `ORGANIZE_WITHOUT_ISBN` is `true`. The default value is calibrated to match most periodicals (magazines, newspapers, etc.) so the script can ignore them.
+
+* `--pamphlet-included-files=<value>`; env. variable `PAMPHLET_INCLUDED_FILES`; default value `\.(png|jpg|jpeg|gif|bmp|svg|csv|pptx?)$`
+
+  This is a regular expression that is matched against lowercase filenames. All files that do not contain ISBNs and do not match `WITHOUT_ISBN_IGNORE` are matched against it and matching files are considered pamphlets by default. They are moved to `OUTPUT_FOLDER_PAMPHLETS` if set, otherwise they are ignored.
+* `--pamphlet-excluded-files=<value>`; env. variable `PAMPHLET_EXCLUDED_FILES`; default value `\.(chm|epub|cbr|cbz|mobi|lit|pdb)$`
+
+  This is a regular expression that is matched against lowercase filenames. If files do not contain ISBNs and match against it, they are NOT considered as pamphlets, even if they have a small size or number of pages.
+* `--pamphlet-max-pdf-pages=<value>`; env. variable `PAMPHLET_MAX_PDF_PAGES`; default value `50`
+
+  `.pdf` files that do not contain valid ISBNs and have a lower number pages than this are considered pamplets/non-ebook documents.
+* `--pamphlet-max-filesize-kb=<value>`; env. variable `PAMPHLET_MAX_FILESIZE_KB`; default value `250`
+
+  Other files that do not contain valid ISBNs and are below this size in KBs are considered pamplets/non-ebook documents.
+
+#### Output options
+
+* `-o=<value>`, `--output-folder=<value>`; env. variable `OUTPUT_FOLDER`; **default value is the current working directory** (check with `pwd`)
+
+  The folder where ebooks that were renamed based on the ISBN metadata will be moved to.
+* `-ofu=<value>`, `--output-folder-uncertain=<value>`; env. variable `OUTPUT_FOLDER_UNCERTAIN`; empty default value
+
+  If `ORGANIZE_WITHOUT_ISBN` is enabled, this is the folder to which all ebooks that were renamed based on non-ISBN metadata will be moved to.
+* `-ofc=<value>`, `--output-folder-corrupt=<value>`; env. variable `OUTPUT_FOLDER_CORRUPT`; empty default value
+
+  If specified, corrupt files will be moved to this folder.
+* `-ofp=<value>`, `--output-folder-pamphlets=<value>`; env. variable `OUTPUT_FOLDER_PAMPHLETS`; empty default value
+
+  Is specified, pamphlets will be moved to this folder.
+
+
+#### Usage examples
+
+TODO
 
 ### `interactive-organizer.sh`
 
