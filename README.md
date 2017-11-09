@@ -158,19 +158,6 @@ All of these options are part of the common library and may affect some or all o
   The length of the debug prefix used by the some scripts in the output when `VERBOSE` mode is enabled.
 
 
-
-## Implementation details
-
-### Searching for ISBNs in files
-
-There are several different ways that a specific file can be searched for ISBN numbers. Each step requires progressively more "expensive" operations. If at some point ISBNs are found, they are returned or used without trying the remaining strategies. The regular expression used for matching ISBNs is in `ISBN_REGEX` (in `lib.sh`) and all matched numbers are verified for correct ISBN [check numbers](https://en.wikipedia.org/wiki/International_Standard_Book_Number#Check_digits). These are the steps:
-1. Check the supplied file name for ISBNs (the path is ignored).
-2. If the [MIME type](https://en.wikipedia.org/wiki/MIME) of the file matches `ISBN_DIRECT_GREP_FILES`, search the file contents directly for ISBNs. If the MIME type matches `ISBN_IGNORED_FILES`, the search stops with no results.
-3. Check the file metadata from calibre's `ebook-meta` tool for ISBNs.
-4. Try to extract the file as an archive with `7z`. If successful, recursively repeat all of these steps for all the extracted files.
-5. If the file is not an archive, try to convert it to a `.txt` file. Use calibre's `ebook-convert` unless a faster alternative is present - `pdftotext` from `poppler` for `.pdf` files, `catdoc` for `.doc` files or `djvutxt` for `.djvu` files.
-6. If OCR is enabled and the simple conversion to `.txt` fails or if its result is empty try OCR-ing the file. If the result is non-empty but does not contain ISBNs and `OCR_ENABLED` is set to `always`, run OCR as well.
-
 ## Script usage and options
 
 ### `organize-ebooks.sh`
@@ -264,6 +251,20 @@ TODO: description, options
 * `-sn=<value>`, `--start-number=<value>`; env. variable `START_NUMBER`; default value `0`
 * `-fp=<value>`, `--folder-pattern=<value>`; env. variable `FOLDER_PATTERN`; default value `%05d000`
 * `-fpf=<value>`, `--files-per-folder=<value>`; env. variable `FILES_PER_FOLDER`; default value `1000`
+
+
+## Implementation details
+
+### Searching for ISBNs in files
+
+There are several different ways that a specific file can be searched for ISBN numbers. Each step requires progressively more "expensive" operations. If at some point ISBNs are found, they are returned or used without trying the remaining strategies. The regular expression used for matching ISBNs is in `ISBN_REGEX` (in `lib.sh`) and all matched numbers are verified for correct ISBN [check numbers](https://en.wikipedia.org/wiki/International_Standard_Book_Number#Check_digits). These are the steps:
+1. Check the supplied file name for ISBNs (the path is ignored).
+2. If the [MIME type](https://en.wikipedia.org/wiki/MIME) of the file matches `ISBN_DIRECT_GREP_FILES`, search the file contents directly for ISBNs. If the MIME type matches `ISBN_IGNORED_FILES`, the search stops with no results.
+3. Check the file metadata from calibre's `ebook-meta` tool for ISBNs.
+4. Try to extract the file as an archive with `7z`. If successful, recursively repeat all of these steps for all the extracted files.
+5. If the file is not an archive, try to convert it to a `.txt` file. Use calibre's `ebook-convert` unless a faster alternative is present - `pdftotext` from `poppler` for `.pdf` files, `catdoc` for `.doc` files or `djvutxt` for `.djvu` files.
+6. If OCR is enabled and the simple conversion to `.txt` fails or if its result is empty try OCR-ing the file. If the result is non-empty but does not contain ISBNs and `OCR_ENABLED` is set to `always`, run OCR as well.
+
 
 # Limitations
 
