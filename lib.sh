@@ -83,6 +83,7 @@ NC='\033[0m' #shellcheck disable=SC2034
 [ -z "${OUTPUT_FILENAME_TEMPLATE:+x}" ] && OUTPUT_FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]:+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]:+ (${d[PUBLISHED]%%-*})}${d[ISBN]:+ [${d[ISBN]}]}.${d[EXT]}"'
 : "${OUTPUT_METADATA_EXTENSION:=meta}"
 
+: "${DEBUG_PREFIX_LENGTH:=40}"
 
 # Handle parsing from arguments and setting all the common config vars
 #shellcheck disable=SC2034
@@ -122,6 +123,8 @@ handle_script_arg() {
 
 		-oft=*|--output-filename-template=*) OUTPUT_FILENAME_TEMPLATE="${arg#*=}" ;;
 		-ome=*|--output-metadata-extension=*) OUTPUT_METADATA_EXTENSION="${arg#*=}" ;;
+
+		--debug-prefix-length=*) DEBUG_PREFIX_LENGTH="${arg#*=}" ;;
 
 		-*) echo "Invalid option '$arg'"; exit 4; ;;
 	esac

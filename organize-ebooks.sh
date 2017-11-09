@@ -11,11 +11,9 @@ set -euo pipefail
 : "${OUTPUT_FOLDER_PAMPHLETS:=}"
 
 : "${PAMPHLET_INCLUDED_FILES:="\\.(png|jpg|jpeg|gif|bmp|svg|csv|pptx?)\$"}"
-: "${PAMPHLET_EXCLUDED_FILES:="\\.(chm|epub|cbr|mobi|lit|pdb)\$"}"
+: "${PAMPHLET_EXCLUDED_FILES:="\\.(chm|epub|cbr|cbz|mobi|lit|pdb)\$"}"
 : "${PAMPHLET_MAX_PDF_PAGES:=50}"
 : "${PAMPHLET_MAX_FILESIZE_KB:=250}"
-
-: "${DEBUG_PREFIX_LENGTH:=40}"
 
 # shellcheck source=./lib.sh
 . "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/lib.sh"
@@ -32,11 +30,17 @@ for arg in "$@"; do
 	case "$arg" in
 		-cco|--corruption-check-only) CORRUPTION_CHECK_ONLY=true ;;
 		-owi|--organize--without--isbn) ORGANIZE_WITHOUT_ISBN=true ;;
+
 		-o=*|--output-folder=*) OUTPUT_FOLDER="${arg#*=}" ;;
 		-ofu=*|--output-folder-uncertain=*) OUTPUT_FOLDER_UNCERTAIN="${arg#*=}" ;;
 		-ofc=*|--output-folder-corrupt=*) OUTPUT_FOLDER_CORRUPT="${arg#*=}" ;;
 		-ofp=*|--output-folder-pamphlets=*) OUTPUT_FOLDER_PAMPHLETS="${arg#*=}" ;;
-		--debug-prefix-length=*) DEBUG_PREFIX_LENGTH="${arg#*=}" ;;
+
+		--pamphlet-included-files=*) PAMPHLET_INCLUDED_FILES="${arg#*=}" ;;
+		--pamphlet-excluded-files=*) PAMPHLET_EXCLUDED_FILES="${arg#*=}" ;;
+		--pamphlet-max-pdf-pages=*) PAMPHLET_MAX_PDF_PAGES="${arg#*=}" ;;
+		--pamphlet-max-filesize-kb=*) PAMPHLET_MAX_FILESIZE_KB="${arg#*=}" ;;
+
 		-h|--help) print_help; exit 1 ;;
 		-*|--*) handle_script_arg "$arg" ;;
 		*) break ;;
