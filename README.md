@@ -247,32 +247,46 @@ This script can be used to manually organize ebook files quickly. It can also be
 
 TODO
 
-### `find-isbns.sh`
+### `find-isbns.sh [<OPTIONS>] [filename]`
 
-TODO: description, options, example with fetch-ebook-metadata
+This script tries to find [valid ISBNs](https://en.wikipedia.org/wiki/International_Standard_Book_Number#Check_digits) inside a file or in `stdin` if no file is specified. Searching for ISBNs in files uses progressively more resource-intensive methods until some ISBNs are found, see the documentation [below](#searching-for-isbns-in-files) for more details.
 
+Some global options affect this script (especially the ones [related to extracting ISBNs from files](#options-related-to-extracting-isbns-from-files-and-finding-metadata-by-isbn)), but the only script-specific option is:
 * `-irs=<value>`, `--isbn-return-separator=<value>`; env. variable `ISBN_RET_SEPARATOR`; default value `$'\n'` (a new line)
 
-### `convert-to-txt.sh`
+  This specifies the separator that will be used when returning any found ISBNs.
 
-TODO: description, options
+### `convert-to-txt.sh [<OPTIONS>] filename`
 
-### `rename-calibre-library.sh`
+ This script converts the supplied file to a text file. It can optionally also use OCR for `.pdf`, `.djvu` and image files. There are no local options, but a some of the global options affect this script's behavior a lot, especially the [OCR ones](#options-for-ocr).
 
-TODO: description, options, demo screencast
+### `rename-calibre-library.sh [<OPTIONS>] calibre-folder [...]`
+
+This script traverses a calibre library folder and renames all the book files in it by reading their metadata from calibre's `metadata.opf` files.
 
 * `-o=<value>`, `--output-folder=<value>`; env. variable `OUTPUT_FOLDER`; the default value is the current working directory (check with `pwd`)
+
+  This is the output folder the renamed books will be moved to.
 * `-sm=<value>`, `--save-metadata=<value>`; env. variable `SAVE_METADATA`; default value `recreate`
 
-### `split-into-folders.sh`
+  This specifies whether metadata files will be saved together with the renamed ebooks. Value `opfcopy` just copies calibre's `metadata.opf` next to each renamed file with a `OUTPUT_METADATA_EXTENSION` extension, while `recreate` saves a metadata file that is similar to the one `organize-ebooks.sh` creates. Any other value disables this function.
 
-TODO: description, options
+### `split-into-folders.sh [<OPTIONS>] folder-with-books [...]`
+
+This script recursively scans the supplied folders for files and splits the found files (and the accompanying metadata files if present) into folders with consecutive names that each contain the specified number of files.
 
 * `-o=<value>`, `--output-folder=<value>`; env. variable `OUTPUT_FOLDER`; the default value is the current working directory (check with `pwd`)
+
+  The output folder in which all the new consecutively named folders will be created.
 * `-sn=<value>`, `--start-number=<value>`; env. variable `START_NUMBER`; default value `0`
+
+  The number of the first folder.
 * `-fp=<value>`, `--folder-pattern=<value>`; env. variable `FOLDER_PATTERN`; default value `%05d000`
+
+  The `printf` format string that specifies the pattern with which new folders will be created. By default it creates folders like `00000000, 00001000, 00002000, ...`.
 * `-fpf=<value>`, `--files-per-folder=<value>`; env. variable `FILES_PER_FOLDER`; default value `1000`
 
+  How many files should be moved to each folder.
 
 ## Implementation details
 
