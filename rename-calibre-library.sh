@@ -18,7 +18,10 @@ for arg in "$@"; do
 	shift # past argument=value or argument with no value
 done
 unset -v arg
-
+if [[ "$#" == "0" ]]; then
+	echo "Please specify calibre library folder(s)"
+	exit 1
+fi
 
 find "$@" -type f ! -name "*.opf" ! -name "cover.jpg" -print0 | sort -z "${FILE_SORT_FLAGS[@]}" | while IFS= read -r -d '' book_path
 do

@@ -22,9 +22,9 @@ set -euo pipefail
 print_help() {
 	echo "Interactive eBook organizer v$VERSION"
 	echo
-	echo "Usage: $(basename "${BASH_SOURCE[0]}") [OPTIONS] EBOOK_PATHS..."
+	echo "Usage: $(basename "${BASH_SOURCE[0]}") [OPTIONS] EBOOK_FOLDERS..."
 	echo
-	echo "For information about the possible options, see the beginning of the script itself"
+	echo "For information about the possible options, see the README.md file or the script source itself"
 }
 
 for arg in "$@"; do

@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-VERSION="0.3" #shellcheck disable=SC2034
+VERSION="0.4" #shellcheck disable=SC2034
 
 GREEN='\033[0;32m' #shellcheck disable=SC2034
 RED='\033[0;31m' #shellcheck disable=SC2034

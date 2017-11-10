@@ -21,6 +21,11 @@ for arg in "$@"; do
 done
 unset -v arg
 
+if [[ "$#" == "0" ]]; then
+	echo "Please specify calibre library folder(s)"
+	exit 1
+fi
+
 input_file="$1"
 output_file="${2:-}"
 mime_type=$(file --brief --mime-type "$input_file")

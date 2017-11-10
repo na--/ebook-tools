@@ -18,8 +18,6 @@ for arg in "$@"; do
 done
 unset -v arg
 
-#TODO:  help
-
 if [[ "$#" == "0" ]]; then
 	find_isbns
 else
