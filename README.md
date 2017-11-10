@@ -1,4 +1,10 @@
-# eBook Tools
+<div align="center">
+
+  # eBook Tools
+
+  [![Build Status](https://travis-ci.org/na--/ebook-tools.svg?branch=master)](https://travis-ci.org/na--/ebook-tools)
+
+</div>
 
 This is a collection of bash shell scripts for automated and semi-automated organization and management of large ebook collections. It contains the following tools:
 
@@ -30,7 +36,7 @@ All of the tools use a library file `lib.sh` that has useful functions for build
 TODO: screencast
 --->
 
-## Requirements and dependencies
+# Requirements and dependencies
 
 You need recent versions of:
 - GNU `bash` 4.3+, `coreutils`, `awk`, `sed` and `grep`.
@@ -47,7 +53,7 @@ sudo pacman -S bash gawk sed grep calibre p7zip tesseract tesseract-data-eng per
 
 *Note: you can probably get much better OCR results by using the unstable 4.0 version of Tesseract. It is present in the [AUR](https://aur.archlinux.org/packages/tesseract-git/) or you can easily make a package like [this](https://github.com/na--/custom-archlinux-packages/blob/master/tesseract-4-bundle-git/PKGBUILD) yourself.*
 
-## Installation
+# Installation
 
 Just clone the repository or download a [release](https://github.com/na--/ebook-tools/releases) archive.
 
@@ -310,6 +316,7 @@ There are several different ways that a specific file can be searched for ISBN n
 # Roadmap
 
 - Add hooks for different actions, for example the ability to call an external script for organizing an ebook instead of directly renaming/symlinking it.
+- Publish some of the basic tests.
 - Maybe rewrite the scripts in a more portable (or at least saner) language than bash...
 
 # Security and safety
