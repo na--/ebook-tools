@@ -66,7 +66,7 @@ All of these options are part of the common library and may affect some or all o
 
 * `-v`, `--verbose`; env. variable `VERBOSE`; default value `false`
 
-  Whether debug messages to be displayed on `stderr`. Passing the parameter or changing `VERBOSE` to `true` and piping the `stderr` to a file is useful for debugging or keeping a record of exactly what happens without cluttering and overwhelming the normal execution output.
+  Whether debug messages will be displayed on `stderr`. Passing the parameter or changing `VERBOSE` to `true` and piping the `stderr` to a file is useful for debugging or keeping a record of exactly what happens without cluttering and overwhelming the normal execution output.
 * `-d`, `--dry-run`; env. variable `DRY_RUN`; default value `false`
 
   If this is enabled, no file rename/move/symlink/etc. operations will actually be executed.
@@ -104,7 +104,7 @@ All of these options are part of the common library and may affect some or all o
 
   Whether to enable OCR for `.pdf`, `.djvu` and image files. It is disabled by default and can be used differently in two scripts:
   - `organize-ebooks.sh` can use OCR for finding ISBNs in scanned books. Setting the value to `true` will cause it to use OCR for books that failed to be converted to `.txt` or were converted to empty files by the simple conversion tools (`ebook-convert`, `pdftotext`, `djvutxt`). Setting the value to `always` will cause it to use OCR even when the simple tools produced a non-empty result, if there were no ISBNs in it.
-  - `convert-to-txt.sh` can user OCR for the conversion to `.txt`. Setting the value to `true` will cause it to use OCR for books that failed to be converted to `.txt` or were converted to empty files by the simple conversion tools. Setting it to `always` will cause it to first try OCR-ing the books before trying the simple conversion tools.
+  - `convert-to-txt.sh` can use OCR for the conversion to `.txt`. Setting the value to `true` will cause it to use OCR for books that failed to be converted to `.txt` or were converted to empty files by the simple conversion tools. Setting it to `always` will cause it to first try OCR-ing the books before trying the simple conversion tools.
 
 * `-ocrop=<value>`, `--ocr-only-first-last-pages=<value>`; env. variable `OCR_ONLY_FIRST_LAST_PAGES`; default value `7,3` (except for `convert-to-txt.sh` where it's `false`)
 
@@ -220,7 +220,7 @@ TODO
 ### `interactive-organizer.sh [<OPTIONS>] folder-to-organize [...]`
 
 #### Description
-This script can be used to manually organize ebook files quickly. It can also be used to semi-automatically verify the ebooks organized by `organize-ebooks.sh` if the `KEEP_METADATA` was enabled so the new filenames can be compared with the old ones.
+This script can be used to manually organize ebook files quickly. It can also be used to semi-automatically verify the ebooks organized by `organize-ebooks.sh` if the `KEEP_METADATA` option was enabled so the new filenames can be compared with the old ones.
 
 #### Options
 
@@ -229,7 +229,7 @@ This script can be used to manually organize ebook files quickly. It can also be
   You can use this argument multiple times (or use the array environment variable) to specify different folders to which you can quickly move ebook files. The first specified folder is the default.
 * `-qm`, `--quick-mode`; env. variable `QUICK_MODE`; default value `false`
 
-  This mode is useful when `organize-ebooks.sh` was called with `--keep-metadata` - ebooks that contain all of the tokens from the old file name in the new one are directly moved to the default output folder.
+  This mode is useful when `organize-ebooks.sh` was called with `--keep-metadata`. Ebooks that contain all of the tokens from the old file name in the new one are directly moved to the default output folder.
 * `-cmbd=<value>`, `--custom-move-base-dir=<value>`; env. variable `CUSTOM_MOVE_BASE_DIR`; empty default value
 
   This option is used to specify a base directory in whose sub-folders files can more easily be moved during the interactive session because of tab autocompletion.
@@ -241,7 +241,7 @@ This script can be used to manually organize ebook files quickly. It can also be
   Which differences due to accents and other diacritical marks to be ignored when comparing tokens in `QUICK_MODE` and the interactive interface. The default value handles some basic cases like allowing letters like `á`, `à`, `â` and others instead of `a` and the reverse when comparing the old and new files.
 * `-mpw`, `--match-partial-words`; env. variable `MATCH_PARTIAL_WORDS`; default value `false`
 
-  Whether tokens from the old filenames that partially match in the new filesname to be accepted by `QUICK_MODE` and the interactive interface.
+  Whether tokens from the old filenames that partially match in the new filename to be accepted by `QUICK_MODE` and the interactive interface.
 
 #### Examples
 
