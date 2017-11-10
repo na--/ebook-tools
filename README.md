@@ -1,12 +1,4 @@
-<div align="center">
-
-  # eBook Tools
-
-  [![Build Status](https://travis-ci.org/na--/ebook-tools.svg?branch=master)](https://travis-ci.org/na--/ebook-tools)
-  [![Latest Release](https://img.shields.io/github/release/na--/ebook-tools/all.svg)](https://github.com/na--/ebook-tools/releases)
-  [![Commits since the latest release](https://img.shields.io/github/commits-since/na--/ebook-tools/latest.svg)](https://github.com/na--/ebook-tools/commits/master)
-
-</div>
+# eBook Tools
 
 This is a collection of bash shell scripts for automated and semi-automated organization and management of large ebook collections. It contains the following tools:
 
