@@ -3,8 +3,9 @@ FROM debian:sid-slim
 WORKDIR /ebook-tools
 
 RUN apt-get update && \
-    apt-get --no-install-recommends -y install bash gawk sed grep calibre p7zip-full tesseract-ocr tesseract-ocr-osd tesseract-ocr-eng libxml-xpath-perl poppler-utils catdoc djvulibre-bin curl && \
+    apt-get --no-install-recommends -y install bash file locales gawk sed grep calibre p7zip-full tesseract-ocr tesseract-ocr-osd tesseract-ocr-eng libxml-xpath-perl poppler-utils catdoc djvulibre-bin curl && \
     rm -rf /var/lib/apt/lists/* && \
+    localedef -i en_US -c -f UTF-8 en_US.UTF-8 && \
     curl -s 'https://www.mobileread.com/forums/attachment.php?attachmentid=153947' > goodreads.zip && \
     sha256sum 'goodreads.zip' | grep -q 'd4baa44ab16f3ab4f412f40e8f67cea514e21ec1679f46de17d4ec3ebc29c766' && \
     calibre-customize --add-plugin goodreads.zip && \
@@ -17,6 +18,6 @@ RUN apt-get update && \
 
 COPY . /ebook-tools
 
-ENV PATH="${PATH}:/ebook-tools"
+ENV LANG="en_US.UTF-8" PATH="${PATH}:/ebook-tools"
 
 ENTRYPOINT ["bash"]
