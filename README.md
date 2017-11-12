@@ -10,6 +10,8 @@ This is a collection of bash shell scripts for automated and semi-automated orga
   - Optical character recognition ([OCR](https://en.wikipedia.org/wiki/Optical_character_recognition)) can be automatically used for`.pdf`, `.djvu` and image files when no ISBNs were found in them by the fast and straightforward conversion to `.txt`. This is very useful for scanned ebooks that only contain images or were badly OCR-ed in the first place.
   - Files are checked for corruption (zero-filled files, broken pdfs, corrupt archive, etc.) and corrupt files can optionally be moved to another folder.
   - Non-ebook documents, pamphlets and pamphlet-like documents like saved webpages, short pdfs, etc. can also be detected and optionally moved to another folder.
+
+  [![asciicast](https://asciinema.org/a/147116.png)](https://asciinema.org/a/147116)
 - `interactive-organizer.sh` can be used to interactively and manually organize ebook files quickly. A good use case is the organization of the files that could not be automatically organized by the `organize-ebooks.sh` script. It can also be used to semi-automatically verify the organized files by the above script and potentially reorganize some of them:
   - If `organize-ebooks.sh` was called with `--keep-metadata`, the interactive organizer compares the old filename with the new one and shows suspicious differences between the two. Wrongly renamed files can be interactively renamed with this script.
   - There is a quick mode that skips files with names that contain the all of the original filename's tokens. Differences due to [diacritical marks](https://en.wikipedia.org/wiki/Diacritic) and truncated words are handled intelligently. A list of allowed differences can be configured and interactively updated while organizing the books.
@@ -24,11 +26,6 @@ This is a collection of bash shell scripts for automated and semi-automated orga
 
 All of the tools use a library file `lib.sh` that has useful functions for building other ebook management scripts. More details for the different script options and parameters can be found in the [Usage, options and configuration](#usage-options-and-configuration) section.
 
-<!---
-## Demo
-
-TODO: screencast
---->
 
 # Requirements and dependencies
 
@@ -213,10 +210,6 @@ This is probably the most versatile script in the repository. It can automatical
   Is specified, pamphlets will be moved to this folder.
 
 
-#### Examples
-
-TODO
-
 ### `interactive-organizer.sh [<OPTIONS>] folder-to-organize [...]`
 
 #### Description
@@ -242,10 +235,6 @@ This script can be used to manually organize ebook files quickly. It can also be
 * `-mpw`, `--match-partial-words`; env. variable `MATCH_PARTIAL_WORDS`; default value `false`
 
   Whether tokens from the old filenames that partially match in the new filename to be accepted by `QUICK_MODE` and the interactive interface.
-
-#### Examples
-
-TODO
 
 ### `find-isbns.sh [<OPTIONS>] [filename]`
 
