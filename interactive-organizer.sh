@@ -162,14 +162,14 @@ header_and_check() {
 		sed_exprs+=("${sed_expr:+--expression=$sed_expr}")
 	done
 	cf_tokens=$(echo "${cf_name%.*}" | tokenize $'\n')
-	masked_cf_tokens=$(echo "$cf_tokens" | stream_concat '|' | sed -E "${sed_exprs[@]}")
+	masked_cf_tokens=$(echo "$cf_tokens" | stream_concat '|' | sed -E "${sed_exprs[@]:-}")
 
 	local old_path old_name old_name_hl missing_word missing_words=() partial_words=()
 	old_path=$(get_old_path "$cf_path" "$metadata_path")
 	old_name=$(basename "$old_path")
 
 	while read -r missing_word || [[ -n "$missing_word" ]]; do
-		if echo "$cf_tokens" | grep -qiE "^$(echo "$missing_word" | sed -E "${sed_exprs[@]}")"; then
+		if echo "$cf_tokens" | grep -qiE "^$(echo "$missing_word" | sed -E "${sed_exprs[@]:-}")"; then
 			partial_words+=("$missing_word")
 		else
 			missing_words+=("$missing_word")
@@ -177,19 +177,19 @@ header_and_check() {
 	done < <(echo "${old_name%.*}" | tokenize $'\n' | { grep -ivE "^($masked_cf_tokens)+\$" || true; })
 
 	old_name_hl=$(echo "$old_name" |
-		cgrep '1;31' "$(str_concat '|' "${missing_words[@]}")" |
-		cgrep '1;33' "$(str_concat '|' "${partial_words[@]}")" |
+		cgrep '1;31' "$(str_concat '|' ${missing_words[@]:+"${missing_words[@]}"})" |
+		cgrep '1;33' "$(str_concat '|' ${partial_words[@]:+"${partial_words[@]}"})" |
 		cgrep '1;32' "$masked_cf_tokens" |
 		cgrep '1;30' "$TOKENS_TO_IGNORE" )
 
 	if [[ "$MATCH_PARTIAL_WORDS" != true ]]; then
-		missing_words=("${missing_words[@]}" "${partial_words[@]}")
+		missing_words=(${missing_words[@]:+"${missing_words[@]}"} ${partial_words[@]:+"${partial_words[@]}"})
 	fi
 
 	echo "Old	'$old_name_hl' (in '${old_path%/*}/')"
 
 	if (( ${#missing_words[@]} != 0 )); then
-		echo -e "Missing words from the old file name: ${BOLD}$(str_concat ',' "${missing_words[@]}")${NC}"
+		echo -e "Missing words from the old file name: ${BOLD}$(str_concat ',' ${missing_words[@]:+"${missing_words[@]}"})${NC}"
 		return 2
 	fi
 
@@ -350,7 +350,7 @@ review_file() {
 for fpath in "$@"; do
 	echo "Recursively scanning '$fpath' for files (except .${OUTPUT_METADATA_EXTENSION})"
 
-	find "$fpath" -type f ! -name "*.${OUTPUT_METADATA_EXTENSION}" -print0 | sort -z "${FILE_SORT_FLAGS[@]}" | while IFS= read -r -d '' file_to_review
+	find "$fpath" -type f ! -name "*.${OUTPUT_METADATA_EXTENSION}" -print0 | sort -z ${FILE_SORT_FLAGS[@]:+"${FILE_SORT_FLAGS[@]}"} | while IFS= read -r -d '' file_to_review
 	do
 		review_file "$file_to_review"
 		echo "==============================================================================="

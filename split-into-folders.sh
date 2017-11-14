@@ -30,7 +30,7 @@ fi
 
 current_folder_num="$START_NUMBER"
 
-find "$@" -type f ! -name "*.meta" | sort "${FILE_SORT_FLAGS[@]}" | {
+find "$@" -type f ! -name "*.meta" | sort ${FILE_SORT_FLAGS[@]:+"${FILE_SORT_FLAGS[@]}"} | {
 	while true; do
 		chunk=$(cat_n "$FILES_PER_FOLDER")
 		numfiles=$(echo "$chunk" | wc -l)

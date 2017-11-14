@@ -23,7 +23,7 @@ if [[ "$#" == "0" ]]; then
 	exit 1
 fi
 
-find "$@" -type f ! -name "*.opf" ! -name "cover.jpg" -print0 | sort -z "${FILE_SORT_FLAGS[@]}" | while IFS= read -r -d '' book_path
+find "$@" -type f ! -name "*.opf" ! -name "cover.jpg" -print0 | sort -z ${FILE_SORT_FLAGS[@]:+"${FILE_SORT_FLAGS[@]}"} | while IFS= read -r -d '' book_path
 do
     metadata_path="$(dirname "$book_path")/metadata.opf"
     if [[ ! -f "$metadata_path" ]]; then

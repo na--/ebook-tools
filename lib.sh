@@ -477,7 +477,7 @@ get_all_isbns_from_archive() {
 		fi
 		decho "Removing '$file_to_check'..."
 		rm "$file_to_check"
-	done < <(find "$tmpdir" -type f  -print0 | sort -z "${FILE_SORT_FLAGS[@]}")
+	done < <(find "$tmpdir" -type f  -print0 | sort -z ${FILE_SORT_FLAGS[@]:+"${FILE_SORT_FLAGS[@]}"})
 
 	decho "Removing temporary folder '$tmpdir' (should be empty)..."
 	find "$tmpdir" -type d -empty -delete
@@ -677,6 +677,6 @@ fetch_metadata() {
 	done
 
 	decho "Calling fetch-ebook-metadata --verbose" "${args[*]}" "${@:3}"
-	fetch-ebook-metadata --verbose "${args[@]}" "${@:3}" 2> >(debug_prefixer "[$1] " 0 --width=100 -s) | grep -E '[a-zA-Z()]+ +: .*'
+	fetch-ebook-metadata --verbose ${args[@]:+"${args[@]}"} "${@:3}" 2> >(debug_prefixer "[$1] " 0 --width=100 -s) | grep -E '[a-zA-Z()]+ +: .*'
 }
 
