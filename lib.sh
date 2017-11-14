@@ -35,7 +35,7 @@ NC='\033[0m' #shellcheck disable=SC2034
 # texts. To minimize false-positives, matches should be passed through
 # is_isbn_valid() or another ISBN validator
 : "${ISBN_REGEX:="(?<![0-9])(${WSD}9${WSD}7${WSD}[789]${WSD})?+((${WSD}[0-9]${WSD}){9}[0-9xX])(?![0-9])"}"
-: "${ISBN_DIRECT_GREP_FILES:="^text/(plain|xml|html)\$"}"
+: "${ISBN_DIRECT_GREP_FILES:="^(text/(plain|xml|html)|application/xml)\$"}"
 : "${ISBN_IGNORED_FILES:="^(image/(gif|svg.+)|application/(x-shockwave-flash|CDFV2|vnd.ms-opentype|x-font-ttf|x-dosexec|vnd.ms-excel|x-java-applet)|audio/.+|video/.+)\$"}"
 : "${ISBN_RET_SEPARATOR:=,}"
 
