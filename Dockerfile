@@ -16,8 +16,8 @@ RUN apt-get update && \
     calibre-customize --build-plugin calibre-worldcat-xisbn-metadata-plugin-0.1/ && \
     rm -rf worldcat.zip calibre-worldcat-xisbn-metadata-plugin-0.1
 
-COPY . /ebook-tools
-
 ENV LANG="en_US.UTF-8" PATH="${PATH}:/ebook-tools"
 
 ENTRYPOINT ["bash"]
+
+COPY . /ebook-tools
