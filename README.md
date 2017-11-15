@@ -128,17 +128,23 @@ All of these options are part of the common library and may affect some or all o
 #### Options related to the input and output files:
 
 * `-oft=<value>`, `--output-filename-template=<value>`; env. variable `OUTPUT_FILENAME_TEMPLATE`; default value:
-  ```bash
-  "${d[AUTHORS]// & /, } - ${d[SERIES]:+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]:+ (${d[PUBLISHED]%%-*})}${d[ISBN]:+ [${d[ISBN]}]}.${d[EXT]}"
-  ```
-  This specifies how the filenames of the organized files will look. It is a bash string that is evaluated so it can be very flexible (and also potentially unsafe). The book metadata is present in a hashmap with name `d` and uppercase keys. By default the organized files start with the comma-separated author name(s), followed by the book series name and number in square brackets (if present), followed by the book title, the year of publication (if present), the ISBN(s) (if present) and the original extension. Here are are how output filenames using the default template look:
-  ```text
-  Cory Doctorow - [Little Brother #1] - Little Brother (2008) [0765319853].pdf
-  Cory Doctorow - [Little Brother #2] - Homeland (2013) [9780765333698].epub
-  Eliezer Yudkowsky - Harry Potter and the Methods of Rationality (2015).epub
-  Lawrence Lessig - Remix - Making Art and Commerce Thrive in the Hybrid Economy (2008) [9781594201721].djvu
-  Rick Falkvinge - Swarmwise (2013) [1463533152].pdf
-  ```
+    ```bash
+    "${d[AUTHORS]// & /, } - ${d[SERIES]:+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]:+ (${d[PUBLISHED]%%-*})}${d[ISBN]:+ [${d[ISBN]}]}.${d[EXT]}"
+    ```
+  This specifies how the filenames of the organized files will look. It is a bash string that is evaluated so it can be very [flexible](http://www.tldp.org/LDP/abs/html/parameter-substitution.html) (and also potentially unsafe). The book metadata is present in a hashmap with name `d` and uppercase keys. When changing this parameter, keep in mind that you have to either escape the `$` symbols or wrap everything in single quotes like so:
+    ```bash
+      -oft='"${d[TITLE]} by ${d[AUTHORS]}"'
+    ```
+
+  By default the organized files start with the comma-separated author name(s), followed by the book series name and number in square brackets (if present), followed by the book title, the year of publication (if present), the ISBN(s) (if present) and the original extension. Here are are how output filenames using the default template look:
+    ```text
+    Cory Doctorow - [Little Brother #1] - Little Brother (2008) [0765319853].pdf
+    Cory Doctorow - [Little Brother #2] - Homeland (2013) [9780765333698].epub
+    Eliezer Yudkowsky - Harry Potter and the Methods of Rationality (2015).epub
+    Lawrence Lessig - Remix - Making Art and Commerce Thrive in the Hybrid Economy (2008) [9781594201721].djvu
+    Rick Falkvinge - Swarmwise (2013) [1463533152].pdf
+    ```
+
 
 * `-ome=<value>`, `--output-metadata-extension=<value>`; env. variable `OUTPUT_METADATA_EXTENSION`; default value `meta`
 
