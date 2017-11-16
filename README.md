@@ -335,7 +335,9 @@ There are several different ways that a specific file can be searched for ISBN n
 # Roadmap
 
 - Add hooks for different actions, for example the ability to call an external script for organizing an ebook instead of directly renaming/symlinking it.
-- Publish some of the basic tests.
+- Add options for modifying different metadata fields before renaming the files.
+- Add an option to specify the input filename format for more precise non-ISBN metadata extraction.
+- Expand tests - cover all functions and add some whole script tests.
 - Maybe rewrite the scripts in a more portable (or at least saner) language than bash...
 
 # Security and safety
