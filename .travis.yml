@@ -1,14 +1,15 @@
+sudo: required
+
 language: bash
 
-addons:
-  apt:
-    sources:
-    - debian-sid    # Grab ShellCheck from the Debian repo
-    packages:
-    - shellcheck
+services:
+  - docker
+
+before_install:
+ - docker pull koalaman/shellcheck:latest
 
 script:
- - shellcheck $(grep -lE '^#!/.+(ba)?sh$' $(git ls-files))
+ - docker run -v $(pwd):/scripts --workdir=/scripts koalaman/shellcheck:latest $(grep -lE '^#!/.+(ba)?sh$' $(git ls-files))
 
 matrix:
   fast_finish: true
