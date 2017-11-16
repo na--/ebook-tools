@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -eEuo pipefail
 
 [ -z "${OUTPUT_FOLDERS:+x}" ] && OUTPUT_FOLDERS=()
 
@@ -213,12 +213,14 @@ reorganize_interactively() {
 		opt="${opt:1:-1}"
 		echo "Renaming file to '$opt', removing the old metadata if present and saving old file path in the new metadata..."
 		move_or_link_file "$cf_path" "$cf_folder/$opt"
-		if [[ -f "$metadata_path" ]]; then
-			$DRY_RUN || rm "$metadata_path"
+		if [[ -f "$metadata_path" ]] && [[ "$DRY_RUN" == "false" ]]; then
+			rm "$metadata_path"
 		fi
 		cf_path="$cf_folder/$opt"
 		metadata_path="$cf_path.${OUTPUT_METADATA_EXTENSION}"
-		$DRY_RUN || echo "Old file path       : $old_path" > "$metadata_path"
+		if [[ "$DRY_RUN" == "false" ]]; then
+			echo "Old file path       : $old_path" > "$metadata_path"
+		fi
 		review_file "$cf_path"
 		return 0
 	fi
@@ -253,7 +255,9 @@ reorganize_interactively() {
 
 			if [[ -f "$metadata_path" ]]; then
 				echo "Removing old metadata file '$metadata_path'..."
-				$DRY_RUN || rm "$metadata_path"
+				if [[ "$DRY_RUN" == "false" ]]; then
+					rm "$metadata_path"
+				fi
 			fi
 
 			decho "Addding additional metadata to the end of the metadata file..."
@@ -306,10 +310,12 @@ review_file() {
 				fi
 				read -r -e -i "$new_path_default" -p "Delete metadata if exists and move the file to: " new_path  < /dev/tty
 				if [[ "$new_path" != "" ]]; then
-					$DRY_RUN || mkdir -p "${new_path%/*}"
-					$DRY_RUN || mv --no-clobber "$cf_path" "$new_path"
-					if [[ -f "$metadata_path" ]]; then
-						$DRY_RUN || rm "$metadata_path"
+					if [[ "$DRY_RUN" == "false" ]]; then
+						mkdir -p "${new_path%/*}"
+						mv --no-clobber "$cf_path" "$new_path"
+						if [[ -f "$metadata_path" ]]; then
+							rm "$metadata_path"
+						fi
 					fi
 					return
 				else

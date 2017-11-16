@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -eEuo pipefail
 
 # Use newlines as a separator by default
 : "${ISBN_RET_SEPARATOR:=$'\n'}"

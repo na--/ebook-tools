@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -eEuo pipefail
 
 : "${CORRUPTION_CHECK_ONLY:=false}"
 : "${ORGANIZE_WITHOUT_ISBN:=false}"
@@ -278,8 +278,10 @@ organize_file() {
 
 			local new_metadata_path="${new_path}.${OUTPUT_METADATA_EXTENSION}"
 			decho "Saving original filename to '$new_metadata_path'..."
-			$DRY_RUN || echo "Corruption reason   : $file_err" >> "$new_metadata_path"
-			$DRY_RUN || echo "Old file path       : $file_path" >> "$new_metadata_path"
+			if [[ "$DRY_RUN" == "false" ]]; then
+				echo "Corruption reason   : $file_err" >> "$new_metadata_path"
+				echo "Old file path       : $file_path" >> "$new_metadata_path"
+			fi
 		else
 			decho "Output folder for corrupt files is not set, doing nothing"
 			fail_file "$file_path" "File is corrupt: $file_err"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -eEuo pipefail
 
 # OCR all pages by default
 : "${OCR_ONLY_FIRST_LAST_PAGES:="false"}"
@@ -43,7 +43,9 @@ args=("$input_file" "$output_file" "$mime_type")
 
 if [[ "$OCR_ENABLED" == "always" ]]; then
     decho "OCR=always, first try OCR then conversion"
-    ocr_file "${args[@]}" || convert_to_txt "${args[@]}"
+    if ! ocr_file "${args[@]}"; then
+        convert_to_txt "${args[@]}"
+    fi
 elif [[ "$OCR_ENABLED" == "true" ]]; then
     decho "OCR=true, first try conversion and then OCR"
     if convert_to_txt "${args[@]}" && grep -qiE "[[:alnum:]]+" "$output_file"; then

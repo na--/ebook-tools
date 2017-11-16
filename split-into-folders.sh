@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -eEuo pipefail
 
 : "${FOLDER_PATTERN:="%05d000"}"
 : "${START_NUMBER:=0}"
@@ -44,13 +44,17 @@ find "$@" -type f ! -name "*.meta" | sort ${FILE_SORT_FLAGS[@]:+"${FILE_SORT_FLA
 		current_folder="$(printf "$FOLDER_PATTERN" "$current_folder_num")"
 		current_folder_num=$((current_folder_num+1))
 		decho "Creating folder '$OUTPUT_FOLDER/$current_folder' and '$OUTPUT_FOLDER/$current_folder.meta'..."
-		$DRY_RUN || mkdir "$OUTPUT_FOLDER/$current_folder"
-		$DRY_RUN || mkdir "$OUTPUT_FOLDER/$current_folder.meta"
+		if [[ "$DRY_RUN" == "false" ]]; then
+			mkdir "$OUTPUT_FOLDER/$current_folder"
+			mkdir "$OUTPUT_FOLDER/$current_folder.meta"
+		fi
 
 		echo "$chunk" | while IFS= read -r file_to_move || [[ -n "$file_to_move" ]] ; do
 			decho "Moving file '$file_to_move' to '$OUTPUT_FOLDER/$current_folder/' and the meta file to '$OUTPUT_FOLDER/$current_folder.meta/'"
-			$DRY_RUN || mv --no-clobber "$file_to_move" "$OUTPUT_FOLDER/$current_folder/"
-			$DRY_RUN || mv --no-clobber "$file_to_move.meta" "$OUTPUT_FOLDER/$current_folder.meta/"
+			if [[ "$DRY_RUN" == "false" ]]; then
+				mv --no-clobber "$file_to_move" "$OUTPUT_FOLDER/$current_folder/"
+				mv --no-clobber "$file_to_move.meta" "$OUTPUT_FOLDER/$current_folder.meta/"
+			fi
 		done
 	done
 }

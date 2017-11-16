@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -eEuo pipefail
 
 : "${OUTPUT_FOLDER:=$(pwd)}"
 : "${SAVE_METADATA:="recreate"}" # possible values: none, opfcopy, recreate

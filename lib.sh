@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -eEuo pipefail
+shopt -s inherit_errexit
+
+# A simple trap handler for exiting on errors in subshells
+err_trap_handler() {
+	echo "ERROR on line $(caller)!"
+	exit 13
+}
+trap err_trap_handler ERR
 
 VERSION="0.4" #shellcheck disable=SC2034
 
@@ -193,7 +201,7 @@ str_concat () {
 # concatenate them with $1. The delimiter can be multiple characters
 stream_concat () {
 	local od="$1" id="${2:-$'\n'}" val
-	read -d "$id" -r val
+	read -d "$id" -r val || return 0
 	echo -n "$val"
 	while read -d "$id" -r val || [[ -n "$val" ]]; do
 		echo -n "${od}${val}"
@@ -264,13 +272,13 @@ cat_file_for_isbn_grep() {
 # them separated by $ISBN_RET_SEPARATOR
 find_isbns() {
 	local isbn
-	{ grep -oP "$ISBN_REGEX" || true; } | tr -c -d '0-9xX\n' | uniq_no_sort | (
+	{ grep -oP "$ISBN_REGEX" || true; } | tr -c -d '0-9xX\n' | uniq_no_sort | {
 		while IFS='' read -r isbn || [[ -n "$isbn" ]]; do
 			if is_isbn_valid "$isbn"; then
 				echo "$isbn"
 			fi
 		done
-	) | stream_concat "$ISBN_RET_SEPARATOR"
+	} | stream_concat "$ISBN_RET_SEPARATOR"
 }
 
 
@@ -611,15 +619,21 @@ move_or_link_file() {
 
 	if [[ ! -d "$new_folder" ]]; then
 		decho "Creating folder '$new_folder'"
-		$DRY_RUN || mkdir -p "$new_folder"
+		if [[ "$DRY_RUN" == "false" ]]; then
+			mkdir -p "$new_folder"
+		fi
 	fi
 
 	if [[ "$SYMLINK_ONLY" == true ]]; then
 		decho "Symlinking file '$current_path' to '$new_path'..."
-		$DRY_RUN || ln -s "$(realpath "$current_path")" "$new_path"
+		if [[ "$DRY_RUN" == "false" ]]; then
+			ln -s "$(realpath "$current_path")" "$new_path"
+		fi
 	else
 		decho "Moving file '$current_path' to '$new_path'..."
-		$DRY_RUN || mv --no-clobber "$current_path" "$new_path"
+		if [[ "$DRY_RUN" == "false" ]]; then
+			mv --no-clobber "$current_path" "$new_path"
+		fi
 	fi
 }
 
