@@ -8,8 +8,16 @@ services:
 before_install:
  - docker pull koalaman/shellcheck:latest
 
+jobs:
+  include:
+    - stage: test
+      script:
+      - docker run -v $(pwd):/scripts --workdir=/scripts koalaman/shellcheck:latest $(grep -lE '^#!/.+(ba)?sh$' $(git ls-files))
+    -
+      script:
+      - docker build -t ebooktools/scripts:latest .
+      - docker run ebooktools/scripts:latest tests/run.sh
 script:
- - docker run -v $(pwd):/scripts --workdir=/scripts koalaman/shellcheck:latest $(grep -lE '^#!/.+(ba)?sh$' $(git ls-files))
 
 matrix:
   fast_finish: true
