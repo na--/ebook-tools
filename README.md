@@ -338,7 +338,9 @@ There are several different ways that a specific file can be searched for ISBN n
 - Add options for modifying different metadata fields before renaming the files.
 - Add an option to specify the input filename format for more precise non-ISBN metadata extraction.
 - Expand tests - cover all functions and add some whole script tests.
-- Maybe rewrite the scripts in a more portable (or at least saner) language than bash...
+- Add an Arch Linux AUR package.
+- Improve the docker image so there are no permission problems on mounted folders and no user with hardcoded UID 1000 (maybe like [this](https://denibertovic.com/posts/handling-permissions-with-docker-volumes/)).
+- Or just maybe rewrite everything in a more portable (or at least saner) language than bash...
 
 # Security and safety
 
