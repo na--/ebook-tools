@@ -29,7 +29,7 @@ All of the tools use a library file `lib.sh` that has useful functions for build
 
 # Installation and dependencies
 
-There are two ways you can install and use the tools in this repository - [directly](#Shell_scripts) or via [docker images](#Docker).
+There are two ways you can install and use the tools in this repository - [directly](#shell-scripts) or via [docker images](#docker).
 
 Since all of the tools are shell scripts, you should be able to use them directly from source in most up-to-date GNU/Linux distributions, as long as you have the needed dependencies installed. They should also be usable on other *nix systems like OS X and *BSD if you have the **GNU** versions of the dependencies installed or in the [Windows Subsystem for Linux](https://en.wikipedia.org/wiki/Windows_Subsystem_for_Linux).
 
@@ -47,23 +47,23 @@ You need recent versions of:
 - `file`, `bash` 4.3+ and ***GNU*** `coreutils`, `awk`, `sed` and `grep`.
 - [calibre](https://calibre-ebook.com/) **2.84+** for fetching metadata from online sources, conversion to txt (for ISBN searching) and ebook metadata extraction.
 - [p7zip](https://sourceforge.net/projects/p7zip/) for ISBN searching in ebooks that are in archives.
-- [Tesseract](https://github.com/tesseract-ocr/tesseract) for running OCR on books; OCR is disabled by default and another engine can be configured if preferred. Version 4 gives better results even though it's still in alpha.
+- [Tesseract](https://github.com/tesseract-ocr/tesseract) for running OCR on books - version 4 gives better results even though it's still in alpha. OCR is disabled by default and another engine can be configured if preferred.
 - Optionally [poppler](https://poppler.freedesktop.org), [catdoc](http://www.wagner.pp.ru/~vitus/software/catdoc/) and [DjVuLibre](http://djvu.sourceforge.net/) can be installed for faster than calibre's conversion of `.pdf`, `.doc` and `.djvu` files respectively to `.txt`.
-- [xpath](https://metacpan.org/release/XML-XPath) for reading calibre's .opf metadata files in `rename-calibre-library.sh`.
-- Optionally the [Goodreads](https://www.mobileread.com/forums/showthread.php?t=130638) and [WorldCat xISBN](https://github.com/na--/calibre-worldcat-xisbn-metadata-plugin) calibre plugins can be installed for better metadata download.
+- [xpath](https://metacpan.org/release/XML-XPath) for reading calibre's `.opf` metadata files in `rename-calibre-library.sh`.
+- Optionally the [Goodreads](https://www.mobileread.com/forums/showthread.php?t=130638) and [WorldCat xISBN](https://github.com/na--/calibre-worldcat-xisbn-metadata-plugin) calibre plugins can be installed for better metadata fetching.
 
-The scripts are only tested on linux, though they should work on any *nix system that has the needed dependencies. You can install everything needed with this command in Archlinux:
+The scripts are only tested on linux, though they should work on any *nix system that has the needed dependencies. You can install everything needed with this command in Arch Linux:
   ```bash
   pacman -S file bash coreutils gawk sed grep calibre p7zip tesseract tesseract-data-eng perl-xml-xpath poppler catdoc djvulibre
   ```
 
 *Note: you can probably get much better OCR results by using the unstable 4.0 version of Tesseract. It is present in the [AUR](https://aur.archlinux.org/packages/tesseract-git/) or you can easily make a package like [this](https://github.com/na--/custom-archlinux-packages/blob/master/tesseract-4-bundle-git/PKGBUILD) yourself.*
 
-Here is how to install the packages on Debian and Debian-based distributions like Ubuntu:
+Here is how to install the packages on Debian (and Debian-based distributions like Ubuntu):
   ```bash
   apt-get install file bash coreutils gawk sed grep calibre p7zip-full tesseract-ocr tesseract-ocr-osd tesseract-ocr-eng libxml-xpath-perl poppler-utils catdoc djvulibre-bin
   ```
-Keep in mind that a lot of debian-based distributions do not have up-to-date packages and the scripts need calibre with a version of at least 2.84.
+*Keep in mind that a lot of debian-based distributions do not have up-to-date packages and the scripts need calibre with a version of at least 2.84.*
 
 
 ## Docker
@@ -71,7 +71,7 @@ Keep in mind that a lot of debian-based distributions do not have up-to-date pac
 The docker image includes all of the needed dependencies, even the extra calibre plugins. There is an automatically built [docker image](https://hub.docker.com/r/ebooktools/scripts/) in the Docker Hub. You can pull it locally with `doker pull ebooktools/scripts`. You can also easily build the docker image yourself: simply clone this repository (or download the latest [release archive](https://github.com/na--/ebook-tools/releases) and extract it) and then run `docker build -t ebooktools/scripts:latest .` in the folder.
 
 Here are some Docker-specific usage details:
-- You can start a docker container with all the ebook tools by running `docker run -it -v /some/host/folder:/unorganized-books ebooktools/scripts:latest` *(replace `/some/host/folder` with the path to the ebook folder on your machine that you want to organize)*. This will run a bash prompt that has all of the dependencies installed and all of the scripts already in the `PATH` so all the usage instructions bellow should apply.
+- You can start a docker container with all the ebook tools by running `docker run -it -v /some/host/folder:/unorganized-books ebooktools/scripts:latest`. This will run a bash prompt that has all of the dependencies installed and all of the scripts already in the `PATH` so all the usage instructions bellow should apply. The contents of the host folder `/some/host/folder` *(the path to the folder on your machine that you want to organize)* will be mounted as the `/unorganized-books` folder in the container.
 - You can use the `-v` option of `docker run` multiple times to mount several host folders in the container.
 - Consider using the `--rm` option of `docker run` to clean up your containers after you are done with them.
 - The default container user has an UID of 1000, but you can change it with the `--user` option of `docker run` or by editing the `Dockerfile` and rebuilding it yourself.
