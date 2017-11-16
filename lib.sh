@@ -568,7 +568,7 @@ search_file_for_isbns() {
 	decho "Converting ebook to text format in file '$tmptxtfile'..."
 
 	if convert_to_txt "$file_path" "$tmptxtfile" "$mimetype" 2>&1 | debug_prefixer "[ebook2txt] " 0 --width=80 -s; then
-		decho "Conversion to text was successfull, checking the result..."
+		decho "Conversion to text was successful, checking the result..."
 		if ! grep -qiE "[[:alnum:]]+" "$tmptxtfile"; then
 			decho "The converted txt with size $(stat -c '%s' "$tmptxtfile") bytes does not seem to contain text:"
 			#xxd -a $tmptxtfile | head | debug_prefixer "[cat tmp-txt] "
@@ -592,7 +592,7 @@ search_file_for_isbns() {
 	if [[ "$isbns" == "" && "$OCR_ENABLED" != false && "$try_ocr" == true ]]; then
 		decho "Trying to run OCR on the file..."
 		if ocr_file "$file_path" "$tmptxtfile" "$mimetype" 2>&1 | debug_prefixer "[ocr] " 0 --width=80 -t; then
-			decho "OCR was successfull, checking the result..."
+			decho "OCR was successful, checking the result..."
 			isbns="$(cat_file_for_isbn_grep "$tmptxtfile" | find_isbns)"
 			if [[ "$isbns" != "" ]]; then
 				decho "OCR output contains ISBNs '$isbns'!"

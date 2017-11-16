@@ -36,7 +36,7 @@ if [[ "$output_file" == "" ]]; then
     output_file=$(mktemp --suffix='.txt')
     decho "Created a temporary file '$output_file'"
 elif [[ "${output_file##*.}" != "txt" ]]; then
-    echo "Error: the ouput file needs to have a .txt extension!"
+    echo "Error: the output file needs to have a .txt extension!"
     exit 1
 fi
 args=("$input_file" "$output_file" "$mime_type")
@@ -49,7 +49,7 @@ if [[ "$OCR_ENABLED" == "always" ]]; then
 elif [[ "$OCR_ENABLED" == "true" ]]; then
     decho "OCR=true, first try conversion and then OCR"
     if convert_to_txt "${args[@]}" && grep -qiE "[[:alnum:]]+" "$output_file"; then
-        decho "conversion successfull, will not try OCR"
+        decho "conversion successful, will not try OCR"
     else
         ocr_file "${args[@]}"
     fi
