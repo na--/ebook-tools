@@ -14,7 +14,7 @@ tesseract_wrapper () {
 
 for arg in "$@"; do
 	case $arg in
-		-*|--*) handle_script_arg "$arg" ;;
+		-*) handle_script_arg "$arg" ;;
 		*) break ;;
 	esac
 	shift # past argument=value or argument with no value

@@ -12,7 +12,7 @@ for arg in "$@"; do
 	case $arg in
 		-o=*|--output-folder=*) OUTPUT_FOLDER="${arg#*=}" ;;
 		-sm=*|--save-metadata=*) SAVE_METADATA="${arg#*=}" ;;
-		-*|--*) handle_script_arg "$arg" ;;
+		-*) handle_script_arg "$arg" ;;
 		*) break ;;
 	esac
 	shift # past argument=value or argument with no value

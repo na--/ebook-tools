@@ -11,7 +11,7 @@ set -eEuo pipefail
 for arg in "$@"; do
 	case $arg in
 		-irs=*|--isbn-return-separator=*) ISBN_RET_SEPARATOR="${arg#*=}" ;;
-		-*|--*) handle_script_arg "$arg" ;;
+		-*) handle_script_arg "$arg" ;;
 		*) break ;;
 	esac
 	shift # past argument=value or argument with no value

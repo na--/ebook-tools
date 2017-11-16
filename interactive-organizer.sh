@@ -36,7 +36,7 @@ for arg in "$@"; do
 		-ddm=*|--diacritic-difference-masking=*) DIACRITIC_DIFFERENCE_MASKINGS+=("${arg#*=}") ;;
 		-mpw|--match-partial-words) MATCH_PARTIAL_WORDS=true ;;
 		-h|--help) print_help; exit 1 ;;
-		-*|--*) handle_script_arg "$arg" ;;
+		-*) handle_script_arg "$arg" ;;
 		*) break ;;
 	esac
 	shift # past argument=value or argument with no value

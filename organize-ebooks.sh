@@ -42,7 +42,7 @@ for arg in "$@"; do
 		--pamphlet-max-filesize-kb=*) PAMPHLET_MAX_FILESIZE_KB="${arg#*=}" ;;
 
 		-h|--help) print_help; exit 1 ;;
-		-*|--*) handle_script_arg "$arg" ;;
+		-*) handle_script_arg "$arg" ;;
 		*) break ;;
 	esac
 	shift # past argument=value or argument with no value
@@ -52,15 +52,15 @@ if [[ "$#" == "0" ]]; then print_help; exit 2; fi
 
 
 fail_file() {
-	echo -e "${RED}ERR${NC}:\t$1\nREASON:\t$2\n${3+TO:\t$3\n}"
+	echo -e "${RED}ERR${NC}:\\t$1\\nREASON:\\t$2\\n${3+TO:\\t$3\\n}"
 }
 
 ok_file() {
-	echo -e "${GREEN}OK${NC}:\t${1}\nTO:\t${2}\n"
+	echo -e "${GREEN}OK${NC}:\\t${1}\\nTO:\\t${2}\\n"
 }
 
 skip_file() {
-	echo -e "SKIP:\t$1\nREASON:\t$2\n"
+	echo -e "SKIP:\\t$1\\nREASON:\\t$2\\n"
 }
 
 # Arguments: path
@@ -87,7 +87,7 @@ is_pamphlet() {
 	filesize_kb=$(( $(stat -c '%s' "$file_path") / 1024 ))
 	if [[ "$mimetype" == "application/pdf" ]]; then
 		decho "The file looks like a pdf, checking if the number of pages is larger than $PAMPHLET_MAX_PDF_PAGES ..."
-		pages=$(pdfinfo "$file_path" | sed -n -E "s/^Pages:\s+([0-9]+)/\1/p")
+		pages=$(pdfinfo "$file_path" | sed -n -E 's/^Pages:\s+([0-9]+)/\1/p')
 
 		if (( pages > PAMPHLET_MAX_PDF_PAGES )); then
 			decho "The file has $pages pages, too many for a pamphlet"

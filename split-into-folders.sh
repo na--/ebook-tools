@@ -16,7 +16,7 @@ for arg in "$@"; do
 		-sn=*|--start-number=*) START_NUMBER="${arg#*=}" ;;
 		-fp=*|--folder-pattern=*) FOLDER_PATTERN="${arg#*=}" ;;
 		-fpf=*|--files-per-folder=*) FILES_PER_FOLDER="${arg#*=}" ;;
-		-*|--*) handle_script_arg "$arg" ;;
+		-*) handle_script_arg "$arg" ;;
 		*) break ;;
 	esac
 	shift # past argument=value or argument with no value

@@ -10,12 +10,16 @@ err_trap_handler() {
 }
 trap err_trap_handler ERR
 
-VERSION="0.4" #shellcheck disable=SC2034
-
-GREEN='\033[0;32m' #shellcheck disable=SC2034
-RED='\033[0;31m' #shellcheck disable=SC2034
-BOLD='\033[1m' #shellcheck disable=SC2034
-NC='\033[0m' #shellcheck disable=SC2034
+#shellcheck disable=SC2034
+VERSION="0.4"
+#shellcheck disable=SC2034
+GREEN='\033[0;32m'
+#shellcheck disable=SC2034
+RED='\033[0;31m'
+#shellcheck disable=SC2034
+BOLD='\033[1m'
+#shellcheck disable=SC2034
+NC='\033[0m'
 
 : "${VERBOSE:=false}"
 : "${DRY_RUN:=false}"
@@ -72,14 +76,14 @@ NC='\033[0m' #shellcheck disable=SC2034
 : "${RE_YEAR:="(19[0-9]|20[0-$(date '+%Y' | cut -b 3)])[0-9]"}"
 : "${WITHOUT_ISBN_IGNORE:=$(echo "
 # Perdiodicals with filenames that contain something like 2010-11, 199010, 2015_7, 20110203:
-(^|[^0-9])${RE_YEAR}[ _\.-]*(0?[1-9]|10|11|12)([0-9][0-9])?(\$|[^0-9])
+(^|[^0-9])${RE_YEAR}[ _\\.-]*(0?[1-9]|10|11|12)([0-9][0-9])?(\$|[^0-9])
 # Periodicals with month numbers before the year
-|(^|[^0-9])([0-9][0-9])?(0?[1-9]|10|11|12)[ _\.-]*${RE_YEAR}(\$|[^0-9])
+|(^|[^0-9])([0-9][0-9])?(0?[1-9]|10|11|12)[ _\\.-]*${RE_YEAR}(\$|[^0-9])
 # Periodicals with months or issues
-|((^|[^a-z])(jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|june?|july?|aug(ust)?|sep(tember)?|oct(ober)?|nov(ember)?|dec(ember)?|mag(azine)?|issue|#[ _\.-]*[0-9]+)+(\$|[^a-z]))
+|((^|[^a-z])(jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|june?|july?|aug(ust)?|sep(tember)?|oct(ober)?|nov(ember)?|dec(ember)?|mag(azine)?|issue|#[ _\\.-]*[0-9]+)+(\$|[^a-z]))
 # Periodicals with seasons and years
-|((spr(ing)?|sum(mer)?|aut(umn)?|win(ter)?|fall)[ _\.-]*${RE_YEAR})
-|(${RE_YEAR}[ _\.-]*(spr(ing)?|sum(mer)?|aut(umn)?|win(ter)?|fall))
+|((spr(ing)?|sum(mer)?|aut(umn)?|win(ter)?|fall)[ _\\.-]*${RE_YEAR})
+|(${RE_YEAR}[ _\\.-]*(spr(ing)?|sum(mer)?|aut(umn)?|win(ter)?|fall))
 " | grep -v '^#' | tr -d '\n')}"
 
 
@@ -127,7 +131,7 @@ handle_script_arg() {
 		-mfo=*|--metadata-fetch-order=*) ISBN_METADATA_FETCH_ORDER="${arg#*=}" ;;
 		-owis=*|--organize-without-isbn-sources=*) ORGANIZE_WITHOUT_ISBN_SOURCES="${arg#*=}" ;;
 		-wii=*|--without-isbn-ignore=*) WITHOUT_ISBN_IGNORE="${arg#*=}" ;;
-		-fsf=*|--file-sort-flags=*) FILE_SORT_FLAGS=(${arg#*=}) ;;
+		-fsf=*|--file-sort-flags=*) IFS=" " read -r -a FILE_SORT_FLAGS <<< "${arg#*=}" ;;
 
 		-oft=*|--output-filename-template=*) OUTPUT_FILENAME_TEMPLATE="${arg#*=}" ;;
 		-ome=*|--output-metadata-extension=*) OUTPUT_METADATA_EXTENSION="${arg#*=}" ;;
@@ -219,7 +223,7 @@ is_isbn_valid() {
 			if [[ "$i" == "9" && "$number" == "X" ]]; then
 				number=10
 			fi
-			let "sum = $sum + ($number * ( 10 - $i ))"
+			(( sum = sum + (number * ( 10 - i )) ))
 		done
 		if [ "$((sum % 11))" == "0" ]; then
 			return 0
@@ -227,10 +231,10 @@ is_isbn_valid() {
 	elif [ "${#isbn}" == "13" ]; then
 		if [[ "${isbn:0:3}" = "978" || "${isbn:0:3}" = "979" ]]; then
 			for i in {0..12..2}; do
-				let "sum = $sum + ${isbn:$i:1}"
+				(( sum = sum + ${isbn:$i:1} ))
 			done
 			for i in {1..11..2}; do
-				let "sum = $sum + (${isbn:$i:1} * 3)"
+				(( sum = sum + (${isbn:$i:1} * 3) ))
 			done
 			if [ "$((sum % 10))" == "0" ]; then
 				return 0
@@ -365,7 +369,7 @@ check_file_for_corruption() {
 			else
 				decho "pdfinfo returned successfully"
 				echo "$pdfinfo_output" | debug_prefixer "[pdfinfo] " 0 --width=80 -t
-				if echo "$pdfinfo_output" | grep --quiet -E "^Page size:\s*0 x 0 pts$"; then
+				if echo "$pdfinfo_output" | grep --quiet -E '^Page size:\s*0 x 0 pts$'; then
 					decho "pdf is corrupt anyway, page size property is empty!"
 					echo "pdf can be parsed, but page size is 0 x 0 pts!"
 				fi
@@ -428,7 +432,7 @@ ocr_file() {
 
 	case "$mimetype" in
 		application/pdf)
-			num_pages=$(pdfinfo "$if" | sed -n -E "s/^Pages:\s+([0-9]+)/\1/p")
+			num_pages=$(pdfinfo "$if" | sed -n -E 's/^Pages:\s+([0-9]+)/\1/p')
 			page_convert_cmd=convert_pdf_page
 		;;
 		image/vnd.djvu*)
