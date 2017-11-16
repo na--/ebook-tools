@@ -30,7 +30,7 @@ fi
 
 current_folder_num="$START_NUMBER"
 
-find "$@" -type f ! -name "*.meta" | sort ${FILE_SORT_FLAGS[@]:+"${FILE_SORT_FLAGS[@]}"} | {
+find "$@" -type f ! -name "*.${OUTPUT_METADATA_EXTENSION}" | sort ${FILE_SORT_FLAGS[@]:+"${FILE_SORT_FLAGS[@]}"} | {
 	while true; do
 		chunk=$(cat_n "$FILES_PER_FOLDER")
 		numfiles=$(echo "$chunk" | wc -l)
@@ -43,17 +43,19 @@ find "$@" -type f ! -name "*.meta" | sort ${FILE_SORT_FLAGS[@]:+"${FILE_SORT_FLA
 		#shellcheck disable=SC2059
 		current_folder="$(printf "$FOLDER_PATTERN" "$current_folder_num")"
 		current_folder_num=$((current_folder_num+1))
-		decho "Creating folder '$OUTPUT_FOLDER/$current_folder' and '$OUTPUT_FOLDER/$current_folder.meta'..."
+		decho "Creating folder '$OUTPUT_FOLDER/$current_folder' and '$OUTPUT_FOLDER/$current_folder.${OUTPUT_METADATA_EXTENSION}'..."
 		if [[ "$DRY_RUN" == "false" ]]; then
 			mkdir "$OUTPUT_FOLDER/$current_folder"
-			mkdir "$OUTPUT_FOLDER/$current_folder.meta"
+			mkdir "$OUTPUT_FOLDER/$current_folder.${OUTPUT_METADATA_EXTENSION}"
 		fi
 
 		echo "$chunk" | while IFS= read -r file_to_move || [[ -n "$file_to_move" ]] ; do
-			decho "Moving file '$file_to_move' to '$OUTPUT_FOLDER/$current_folder/' and the meta file to '$OUTPUT_FOLDER/$current_folder.meta/'"
+			decho "Moving file '$file_to_move' to '$OUTPUT_FOLDER/$current_folder/' and the meta file to '$OUTPUT_FOLDER/$current_folder.${OUTPUT_METADATA_EXTENSION}/'"
 			if [[ "$DRY_RUN" == "false" ]]; then
 				mv --no-clobber "$file_to_move" "$OUTPUT_FOLDER/$current_folder/"
-				mv --no-clobber "$file_to_move.meta" "$OUTPUT_FOLDER/$current_folder.meta/"
+				mv --no-clobber \
+					"$file_to_move.${OUTPUT_METADATA_EXTENSION}" \
+					"$OUTPUT_FOLDER/$current_folder.${OUTPUT_METADATA_EXTENSION}/"
 			fi
 		done
 	done
