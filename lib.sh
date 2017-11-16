@@ -223,20 +223,20 @@ is_isbn_valid() {
 			if [[ "$i" == "9" && "$number" == "X" ]]; then
 				number=10
 			fi
-			(( sum = sum + (number * ( 10 - i )) ))
+			sum=$(( sum + (number * ( 10 - i )) ))
 		done
-		if [ "$((sum % 11))" == "0" ]; then
+		if (( sum % 11 == 0 )); then
 			return 0
 		fi
 	elif [ "${#isbn}" == "13" ]; then
 		if [[ "${isbn:0:3}" = "978" || "${isbn:0:3}" = "979" ]]; then
 			for i in {0..12..2}; do
-				(( sum = sum + ${isbn:$i:1} ))
+				sum=$(( sum + ${isbn:$i:1} ))
 			done
 			for i in {1..11..2}; do
-				(( sum = sum + (${isbn:$i:1} * 3) ))
+				sum=$(( sum + (${isbn:$i:1} * 3) ))
 			done
-			if [ "$((sum % 10))" == "0" ]; then
+			if (( sum % 10 == 0 )); then
 				return 0
 			fi
 		fi
@@ -449,7 +449,7 @@ ocr_file() {
 	while (( page <= num_pages )); do
 		if [[ "$OCR_ONLY_FIRST_LAST_PAGES" == false ]] ||
 			(( page <= ${ocr_first_pages:-0} )) ||
-			((page > num_pages - ${ocr_last_pages:-0} ));
+			(( page > num_pages - ${ocr_last_pages:-0} ));
 		then
 			tmp_file=$(mktemp)
 			tmp_file_txt=$(mktemp --suffix='.txt')
