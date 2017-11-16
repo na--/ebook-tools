@@ -27,27 +27,49 @@ This is a collection of bash shell scripts for automated and semi-automated orga
 All of the tools use a library file `lib.sh` that has useful functions for building other ebook management scripts. More details for the different script options and parameters can be found in the [Usage, options and configuration](#usage-options-and-configuration) section.
 
 
-# Requirements and dependencies
+# Installation and dependencies
+
+There are two ways you can install and use the tools in this repository - [directly](#Shell_scripts) or via [docker images](#Docker).
+
+Since all of the tools are shell scripts, you should be able to use them directly from source in most up-to-date GNU/Linux distributions, as long as you have the needed dependencies installed. They should also be usable on other *nix systems like OS X and *BSD if you have the **GNU** versions of the dependencies installed or in the [Windows Subsystem for Linux](https://en.wikipedia.org/wiki/Windows_Subsystem_for_Linux).
+
+However, since non-linux systems are officially unsupported and may have unexpected issues, [Docker](#Docker) containers are the preferred way to use the scripts in those systems. The docker images may also be easier to use than the bare scripts on non-GNU linux distributions or on older linux distributions like some LTS releases.
+
+## Shell scripts
+
+To install and use the bare shell scripts, follow these steps:
+1. Install the dependencies below.
+2. Make sure that your system has a [UTF-8 locale](https://www.shellhacks.com/linux-define-locale-language-settings/).
+3. Clone the repository or download a [release](https://github.com/na--/ebook-tools/releases) archive and extract it.
+4. For convenience, you may want to add the scripts folder to the `PATH` environment variable.
 
 You need recent versions of:
-- GNU `bash` 4.3+, `coreutils`, `awk`, `sed` and `grep`.
-- [calibre](https://calibre-ebook.com/) 2.84+ for fetching metadata from online sources, conversion to txt (for ISBN searching) and ebook metadata extraction.
+- `file`, `bash` 4.3+ and ***GNU*** `coreutils`, `awk`, `sed` and `grep`.
+- [calibre](https://calibre-ebook.com/) **2.84+** for fetching metadata from online sources, conversion to txt (for ISBN searching) and ebook metadata extraction.
 - [p7zip](https://sourceforge.net/projects/p7zip/) for ISBN searching in ebooks that are in archives.
 - [Tesseract](https://github.com/tesseract-ocr/tesseract) for running OCR on books; OCR is disabled by default and another engine can be configured if preferred. Version 4 gives better results even though it's still in alpha.
 - Optionally [poppler](https://poppler.freedesktop.org), [catdoc](http://www.wagner.pp.ru/~vitus/software/catdoc/) and [DjVuLibre](http://djvu.sourceforge.net/) can be installed for faster than calibre's conversion of `.pdf`, `.doc` and `.djvu` files respectively to `.txt`.
 - [xpath](https://metacpan.org/release/XML-XPath) for reading calibre's .opf metadata files in `rename-calibre-library.sh`.
 
 The scripts are only tested on linux, though they should work on any *nix system that has the needed dependencies. You can install everything needed with this command in Archlinux:
-```bash
-sudo pacman -S bash gawk sed grep calibre p7zip tesseract tesseract-data-eng perl-xml-xpath poppler catdoc djvulibre
-```
+  ```bash
+  pacman -S file bash coreutils gawk sed grep calibre p7zip tesseract tesseract-data-eng perl-xml-xpath poppler catdoc djvulibre
+  ```
 
 *Note: you can probably get much better OCR results by using the unstable 4.0 version of Tesseract. It is present in the [AUR](https://aur.archlinux.org/packages/tesseract-git/) or you can easily make a package like [this](https://github.com/na--/custom-archlinux-packages/blob/master/tesseract-4-bundle-git/PKGBUILD) yourself.*
 
-# Installation
+Here is how to install the packages on Debian and Debian-based distributions like Ubuntu:
+  ```bash
+  apt-get install file bash coreutils gawk sed grep calibre p7zip-full tesseract-ocr tesseract-ocr-osd tesseract-ocr-eng libxml-xpath-perl poppler-utils catdoc djvulibre-bin
+  ```
+Keep in mind that a lot of debian-based distributions do not have up-to-date packages and the scripts need calibre with a version at least 2.84.
 
-Just clone the repository or download a [release](https://github.com/na--/ebook-tools/releases) archive.
 
+## Docker
+
+### Pre-built docker image
+
+### Manually built docker image
 
 # Usage, options and configuration
 
@@ -133,7 +155,7 @@ All of these options are part of the common library and may affect some or all o
     ```
   This specifies how the filenames of the organized files will look. It is a bash string that is evaluated so it can be very [flexible](http://www.tldp.org/LDP/abs/html/parameter-substitution.html) (and also potentially unsafe). The book metadata is present in a hashmap with name `d` and uppercase keys. When changing this parameter, keep in mind that you have to either escape the `$` symbols or wrap everything in single quotes like so:
     ```bash
-      -oft='"${d[TITLE]} by ${d[AUTHORS]}"'
+    -oft='"${d[TITLE]} by ${d[AUTHORS]}.${d[EXT]}"'
     ```
 
   By default the organized files start with the comma-separated author name(s), followed by the book series name and number in square brackets (if present), followed by the book title, the year of publication (if present), the ISBN(s) (if present) and the original extension. Here are are how output filenames using the default template look:
