@@ -2,6 +2,8 @@ FROM debian:sid-slim
 
 WORKDIR /ebook-tools
 
+ENTRYPOINT ["bash"]
+
 RUN apt-get update && \
     apt-get --no-install-recommends -y install bash file locales gawk sed grep calibre p7zip-full tesseract-ocr tesseract-ocr-osd tesseract-ocr-eng libxml-xpath-perl poppler-utils catdoc djvulibre-bin curl && \
     rm -rf /var/lib/apt/lists/* && \
@@ -14,10 +16,11 @@ RUN apt-get update && \
     sha256sum worldcat.zip | grep -q 'bedddcd736382baf95fed2c38698ded15b0d8fbd8085bacd1a4b4766e972dd4d' && \
     7z x worldcat.zip && \
     calibre-customize --build-plugin calibre-worldcat-xisbn-metadata-plugin-0.1/ && \
-    rm -rf worldcat.zip calibre-worldcat-xisbn-metadata-plugin-0.1
+    rm -rf worldcat.zip calibre-worldcat-xisbn-metadata-plugin-0.1 && \
+    useradd -mUs /usr/bin/bash -u 1000 user
+
+USER user
 
 ENV LANG="en_US.UTF-8" PATH="${PATH}:/ebook-tools"
-
-ENTRYPOINT ["bash"]
 
 COPY . /ebook-tools
