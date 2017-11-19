@@ -5,7 +5,7 @@ shopt -s inherit_errexit
 
 # A simple trap handler for exiting on errors in subshells
 err_trap_handler() {
-	echo "ERROR on line $(caller)!"
+	echo "ERROR on line $(caller)!" >&2
 	exit 13
 }
 trap err_trap_handler ERR
