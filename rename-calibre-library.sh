@@ -23,6 +23,10 @@ if [[ "$#" == "0" ]]; then
 	exit 1
 fi
 
+gm() {
+    python2 -c "from lxml.etree import parse; from sys import stdin; print((u'\\n'.join(parse(stdin).xpath('$2'))).encode('utf-8'))" < "$1"
+}
+
 find "$@" -type f ! -name "*.opf" ! -name "cover.jpg" -print0 | sort -z ${FILE_SORT_FLAGS[@]:+"${FILE_SORT_FLAGS[@]}"} | while IFS= read -r -d '' book_path
 do
     metadata_path="$(dirname "$book_path")/metadata.opf"
@@ -34,11 +38,14 @@ do
     decho "Found file '$book_path' with metadata.opf present, parsing metadata..."
 
     declare -A d=( ["EXT"]="${book_path##*.}" )
-    d["TITLE"]=$(xpath -q -e '//dc:title/text()' < "$metadata_path")
-    d["AUTHORS"]=$(xpath -q -e '//dc:creator/text()' < "$metadata_path" | stream_concat ', ')
-    d["SERIES"]=$(xpath -q -e 'concat(//meta[@name="calibre:series"]/@content," #",//meta[@name="calibre:series_index"]/@content)' < "$metadata_path" | sed -E 's/\s*#\s*$//')
-    d["PUBLISHED"]=$(xpath -q -e '//dc:date/text()' < "$metadata_path")
-    d["ISBN"]=$(xpath -q -e '//dc:identifier[@opf:scheme="ISBN"]/text()' < "$metadata_path")
+    d["TITLE"]=$(gm "$metadata_path" '//*[local-name()="title"]/text()')
+    d["AUTHORS"]=$(gm "$metadata_path" '//*[local-name()="creator"]/text()' | stream_concat ', ')
+    d["SERIES"]=$(gm "$metadata_path" '//*[local-name()="meta"][@name="calibre:series"]/@content')
+    if [[ "${d['SERIES']}" != "" ]]; then
+        d["SERIES"]="${d['SERIES']} #$(gm "$metadata_path" '//*[local-name()="meta"][@name="calibre:series_index"]/@content')"
+    fi
+    d["PUBLISHED"]=$(gm "$metadata_path" '//*[local-name()="date"]/text()')
+    d["ISBN"]=$(gm "$metadata_path" '//*[local-name()="identifier"][@*[local-name()="scheme" and .="ISBN"]]/text()')
 
     if [[ "${d['ISBN']}" == "" ]]; then
         d['ISBN']=$(find_isbns < "$metadata_path")

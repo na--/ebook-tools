@@ -49,19 +49,18 @@ You need recent versions of:
 - [p7zip](https://sourceforge.net/projects/p7zip/) for ISBN searching in ebooks that are in archives.
 - [Tesseract](https://github.com/tesseract-ocr/tesseract) for running OCR on books - version 4 gives better results even though it's still in alpha. OCR is disabled by default and another engine can be configured if preferred.
 - Optionally [poppler](https://poppler.freedesktop.org), [catdoc](http://www.wagner.pp.ru/~vitus/software/catdoc/) and [DjVuLibre](http://djvu.sourceforge.net/) can be installed for faster than calibre's conversion of `.pdf`, `.doc` and `.djvu` files respectively to `.txt`.
-- [xpath](https://metacpan.org/release/XML-XPath) for reading calibre's `.opf` metadata files in `rename-calibre-library.sh`.
 - Optionally the [Goodreads](https://www.mobileread.com/forums/showthread.php?t=130638) and [WorldCat xISBN](https://github.com/na--/calibre-worldcat-xisbn-metadata-plugin) calibre plugins can be installed for better metadata fetching.
 
 The scripts are only tested on linux, though they should work on any *nix system that has the needed dependencies. You can install everything needed with this command in Arch Linux:
   ```bash
-  pacman -S file bash coreutils gawk sed grep calibre p7zip tesseract tesseract-data-eng perl-xml-xpath poppler catdoc djvulibre
+  pacman -S file bash coreutils gawk sed grep calibre p7zip tesseract tesseract-data-eng python2-lxml poppler catdoc djvulibre
   ```
 
 *Note: you can probably get much better OCR results by using the unstable 4.0 version of Tesseract. It is present in the [AUR](https://aur.archlinux.org/packages/tesseract-git/) or you can easily make a package like [this](https://github.com/na--/custom-archlinux-packages/blob/master/tesseract-4-bundle-git/PKGBUILD) yourself.*
 
 Here is how to install the packages on Debian (and Debian-based distributions like Ubuntu):
   ```bash
-  apt-get install file bash coreutils gawk sed grep calibre p7zip-full tesseract-ocr tesseract-ocr-osd tesseract-ocr-eng libxml-xpath-perl poppler-utils catdoc djvulibre-bin
+  apt-get install file bash coreutils gawk sed grep calibre p7zip-full tesseract-ocr tesseract-ocr-osd tesseract-ocr-eng python-lxml poppler-utils catdoc djvulibre-bin
   ```
 *Keep in mind that a lot of debian-based distributions do not have up-to-date packages and the scripts need calibre with a version of at least 2.84.*
 

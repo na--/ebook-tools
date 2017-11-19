@@ -5,7 +5,7 @@ WORKDIR /ebook-tools
 ENTRYPOINT ["bash"]
 
 RUN apt-get update && \
-    apt-get --no-install-recommends -y install bash file locales gawk sed grep calibre p7zip-full tesseract-ocr tesseract-ocr-osd tesseract-ocr-eng libxml-xpath-perl poppler-utils catdoc djvulibre-bin curl && \
+    apt-get --no-install-recommends -y install bash file locales gawk sed grep calibre p7zip-full tesseract-ocr tesseract-ocr-osd tesseract-ocr-eng python-lxml poppler-utils catdoc djvulibre-bin curl && \
     rm -rf /var/lib/apt/lists/* && \
     localedef -i en_US -c -f UTF-8 en_US.UTF-8 && \
     curl -s 'https://www.mobileread.com/forums/attachment.php?attachmentid=153947' > goodreads.zip && \
