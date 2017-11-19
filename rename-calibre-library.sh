@@ -53,6 +53,8 @@ do
 
     decho "Parsed metadata:"
 	for key in "${!d[@]}"; do
+        #TODO: fix this properly
+        d["$key"]=$(echo "${d[${key}]}" | sed -e 's/[\\/\*\?<>\|\x01-\x1F\x7F\x22\x24\x60]/_/g' | cut -c 1-100)
 		echo "${d[${key}]}" | debug_prefixer "    ${key}" 25
 	done
 

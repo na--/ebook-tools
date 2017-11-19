@@ -648,6 +648,7 @@ move_or_link_ebook_file_and_metadata() {
 	declare -A d=( ["EXT"]="${current_ebook_path##*.}" ) # metadata and the file extension
 
 	while IFS='' read -r line || [[ -n "$line" ]]; do
+		#TODO: fix this properly
 		d["$(echo "${line%%:*}" | sed -e 's/[ \t]*$//' -e 's/ /_/g' -e 's/[^a-zA-Z0-9_]//g' -e 's/\(.*\)/\U\1/')"]="$(echo "${line#*: }" | sed -e 's/[\\/\*\?<>\|\x01-\x1F\x7F\x22\x24\x60]/_/g' | cut -c 1-100 )"
 	done < "$current_metadata_path"
 
