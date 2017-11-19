@@ -92,7 +92,7 @@ NC='\033[0m'
 [ -z "${FILE_SORT_FLAGS:+x}" ] && FILE_SORT_FLAGS=()
 
 #shellcheck disable=SC2016
-[ -z "${OUTPUT_FILENAME_TEMPLATE:+x}" ] && OUTPUT_FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]:+[${d[SERIES]}] - }${d[TITLE]/:/ -}${d[PUBLISHED]:+ (${d[PUBLISHED]%%-*})}${d[ISBN]:+ [${d[ISBN]}]}.${d[EXT]}"'
+[ -z "${OUTPUT_FILENAME_TEMPLATE:+x}" ] && OUTPUT_FILENAME_TEMPLATE='"${d[AUTHORS]// & /, } - ${d[SERIES]:+[${d[SERIES]//:/ -}] - }${d[TITLE]//:/ -}${d[PUBLISHED]:+ (${d[PUBLISHED]%%-*})}${d[ISBN]:+ [${d[ISBN]}]}.${d[EXT]}"'
 : "${OUTPUT_METADATA_EXTENSION:=meta}"
 
 : "${DEBUG_PREFIX_LENGTH:=40}"
