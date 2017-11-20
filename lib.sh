@@ -11,7 +11,7 @@ err_trap_handler() {
 trap err_trap_handler ERR
 
 #shellcheck disable=SC2034
-VERSION="0.5"
+VERSION="0.5.1"
 #shellcheck disable=SC2034
 GREEN='\033[0;32m'
 #shellcheck disable=SC2034
