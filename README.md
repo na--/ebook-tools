@@ -67,7 +67,7 @@ Here is how to install the packages on Debian (and Debian-based distributions li
 
 ## Docker
 
-The docker image includes all of the needed dependencies, even the extra calibre plugins. There is an automatically built [docker image](https://hub.docker.com/r/ebooktools/scripts/) in the Docker Hub. You can pull it locally with `doker pull ebooktools/scripts`. You can also easily build the docker image yourself: simply clone this repository (or download the latest [release archive](https://github.com/na--/ebook-tools/releases) and extract it) and then run `docker build -t ebooktools/scripts:latest .` in the folder.
+The docker image includes all of the needed dependencies, even the extra calibre plugins. There is an automatically built [docker image](https://hub.docker.com/r/ebooktools/scripts/) in the Docker Hub. You can pull it locally with `docker pull ebooktools/scripts`. You can also easily build the docker image yourself: simply clone this repository (or download the latest [release archive](https://github.com/na--/ebook-tools/releases) and extract it) and then run `docker build -t ebooktools/scripts:latest .` in the folder.
 
 Here are some Docker-specific usage details:
 - You can start a docker container with all the ebook tools by running `docker run -it -v /some/host/folder:/unorganized-books ebooktools/scripts:latest`. This will run a bash prompt that has all of the dependencies installed and all of the scripts already in the `PATH` so all the usage instructions bellow should apply. The contents of the host folder `/some/host/folder` *(the path to the folder on your machine that you want to organize)* will be mounted as the `/unorganized-books` folder in the container.
