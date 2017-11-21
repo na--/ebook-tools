@@ -44,7 +44,7 @@ To install and use the bare shell scripts, follow these steps:
 4. For convenience, you may want to add the scripts folder to the `PATH` environment variable.
 
 You need recent versions of:
-- `file`, `bash` 4.3+ and ***GNU*** `coreutils`, `awk`, `sed` and `grep`.
+- `file`, `less`, `bash` 4.3+ and ***GNU*** `coreutils`, `awk`, `sed` and `grep`.
 - [calibre](https://calibre-ebook.com/) **2.84+** for fetching metadata from online sources, conversion to txt (for ISBN searching) and ebook metadata extraction.
 - [p7zip](https://sourceforge.net/projects/p7zip/) for ISBN searching in ebooks that are in archives.
 - [Tesseract](https://github.com/tesseract-ocr/tesseract) for running OCR on books - version 4 gives better results even though it's still in alpha. OCR is disabled by default and another engine can be configured if preferred.
@@ -53,14 +53,14 @@ You need recent versions of:
 
 The scripts are only tested on linux, though they should work on any *nix system that has the needed dependencies. You can install everything needed with this command in Arch Linux:
   ```bash
-  pacman -S file bash coreutils gawk sed grep calibre p7zip tesseract tesseract-data-eng python2-lxml poppler catdoc djvulibre
+  pacman -S file less bash coreutils gawk sed grep calibre p7zip tesseract tesseract-data-eng python2-lxml poppler catdoc djvulibre
   ```
 
 *Note: you can probably get much better OCR results by using the unstable 4.0 version of Tesseract. It is present in the [AUR](https://aur.archlinux.org/packages/tesseract-git/) or you can easily make a package like [this](https://github.com/na--/custom-archlinux-packages/blob/master/tesseract-4-bundle-git/PKGBUILD) yourself.*
 
 Here is how to install the packages on Debian (and Debian-based distributions like Ubuntu):
   ```bash
-  apt-get install file bash coreutils gawk sed grep calibre p7zip-full tesseract-ocr tesseract-ocr-osd tesseract-ocr-eng python-lxml poppler-utils catdoc djvulibre-bin
+  apt-get install file less bash coreutils gawk sed grep calibre p7zip-full tesseract-ocr tesseract-ocr-osd tesseract-ocr-eng python-lxml poppler-utils catdoc djvulibre-bin
   ```
 *Keep in mind that a lot of debian-based distributions do not have up-to-date packages and the scripts need calibre with a version of at least 2.84.*
 
