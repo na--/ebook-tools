@@ -9,7 +9,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* && \
     localedef -i en_US -c -f UTF-8 en_US.UTF-8 && \
     curl 'https://www.mobileread.com/forums/attachment.php?attachmentid=153947' > goodreads.zip && \
-    sha256sum 'goodreads.zip' | grep -q 'd4baa44ab16f3ab4f412f40e8f67cea514e21ec1679f46de17d4ec3ebc29c766' && \
+    sha256sum 'goodreads.zip' | grep -q 'd48956971e14ae6018e3b52a63b5831985a359e22ff2292f86687a69d79f4161' && \
     calibre-customize --add-plugin goodreads.zip && \
     rm goodreads.zip && \
     curl -L 'https://github.com/na--/calibre-worldcat-xisbn-metadata-plugin/archive/0.1.zip' > worldcat.zip && \
