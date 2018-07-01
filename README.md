@@ -45,7 +45,7 @@ To install and use the bare shell scripts, follow these steps:
 
 You need recent versions of:
 - `file`, `less`, `bash` 4.3+ and ***GNU*** `coreutils`, `awk`, `sed` and `grep`.
-- [calibre](https://calibre-ebook.com/) **2.84+** for fetching metadata from online sources, conversion to txt (for ISBN searching) and ebook metadata extraction.
+- [calibre](https://calibre-ebook.com/) for fetching metadata from online sources, conversion to txt (for ISBN searching) and ebook metadata extraction. Versions **2.84** and above are preferred because of their ability to manually specify from which specific online source we want to fetch metadata. _For earlier versions you have to set `ISBN_METADATA_FETCH_ORDER` to an empty string._
 - [p7zip](https://sourceforge.net/projects/p7zip/) for ISBN searching in ebooks that are in archives.
 - [Tesseract](https://github.com/tesseract-ocr/tesseract) for running OCR on books - version 4 gives better results even though it's still in alpha. OCR is disabled by default and another engine can be configured if preferred.
 - Optionally [poppler](https://poppler.freedesktop.org), [catdoc](http://www.wagner.pp.ru/~vitus/software/catdoc/) and [DjVuLibre](http://djvu.sourceforge.net/) can be installed for faster than calibre's conversion of `.pdf`, `.doc` and `.djvu` files respectively to `.txt`.
@@ -62,8 +62,7 @@ Here is how to install the packages on Debian (and Debian-based distributions li
   ```bash
   apt-get install file less bash coreutils gawk sed grep calibre p7zip-full tesseract-ocr tesseract-ocr-osd tesseract-ocr-eng python-lxml poppler-utils catdoc djvulibre-bin
   ```
-*Keep in mind that a lot of debian-based distributions do not have up-to-date packages and the scripts need calibre with a version of at least 2.84.*
-
+*Keep in mind that a lot of debian-based distributions do not have up-to-date packages and the scripts work best when calibre's version is at least 2.84. For earlier versions you have to set `ISBN_METADATA_FETCH_ORDER` to an empty string.*
 
 ## Docker
 
@@ -123,6 +122,8 @@ All of these options are part of the common library and may affect some or all o
 * `-mfo=<value>`, `--metadata-fetch-order=<value>`; env. variables `ISBN_METADATA_FETCH_ORDER`; default value `Goodreads,Amazon.com,Google,ISBNDB,WorldCat xISBN,OZON.ru`
 
   This option allows you to specify the online metadata sources and order in which the scripts will try searching in them for books by their ISBN. The actual search is done by calibre's `fetch-ebook-metadata` command-line application, so any custom calibre metadata [plugins](https://plugins.calibre-ebook.com/) can also be used. To see the currently available options, run `fetch-ebook-metadata --help` and check the description for the `--allowed-plugin` option.
+
+If you use Calibre versions that are older than 2.84, it's required to manually set this option to an empty string.
 
 #### Options for [OCR](https://en.wikipedia.org/wiki/Optical_character_recognition):
 
