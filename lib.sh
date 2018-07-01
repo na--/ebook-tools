@@ -67,9 +67,11 @@ NC='\033[0m'
 : "${OCR_ONLY_FIRST_LAST_PAGES:=7,3}"
 : "${OCR_COMMAND:=tesseract_wrapper}"
 
-# Require Calibre 2.84+, previous versions will search in all enabled sources in the GUI
-: "${ISBN_METADATA_FETCH_ORDER:="Goodreads,Amazon.com,Google,ISBNDB,WorldCat xISBN,OZON.ru"}"
-: "${ORGANIZE_WITHOUT_ISBN_SOURCES:="Goodreads,Amazon.com,Google"}"
+# Set to empty string if using Calibre versions before 2.84, previous versions did not support the
+# --allowed-plugin option that we use to search for metadata in the order specified below, so they
+# can search in all enabled sources in the GUI.
+: "${ISBN_METADATA_FETCH_ORDER="Goodreads,Amazon.com,Google,ISBNDB,WorldCat xISBN,OZON.ru"}"
+: "${ORGANIZE_WITHOUT_ISBN_SOURCES="Goodreads,Amazon.com,Google"}"
 
 # Should be matched against a lowercase filename.ext, lines that start with #
 # and newlines are removed. The default value should filter out most periodicals
