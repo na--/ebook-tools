@@ -60,4 +60,9 @@ assert_eq "076532637X" "$(echo "just an isbn 076532637X in some text" | find_isb
 assert_eq "075640407X,9780756404079" "$(echo "075640407X (ISBN13: 9780756404079)" | find_isbns)"
 assert_eq "9781610391849,1610391845" "$(echo "crazy!978-16–103⁻918 49 16 10—39¯1845-z" | find_isbns)"
 
+wrong_but_valid="0123456789,0000000000,1111111111,2222222222,3333333333,4444444444,5555555555,6666666666,7777777777,8888888888,9999999999"
+
+assert_eq "" "$(echo "$wrong_but_valid" | find_isbns)"
+assert_eq "$wrong_but_valid" "$(echo "$wrong_but_valid" | ISBN_BLACKLIST_REGEX="" find_isbns)"
+
 exit "$EXIT_CODE"

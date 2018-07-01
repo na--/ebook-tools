@@ -51,6 +51,12 @@ NC='\033[0m'
 : "${ISBN_IGNORED_FILES:="^(image/(gif|svg.+)|application/(x-shockwave-flash|CDFV2|vnd.ms-opentype|x-font-ttf|x-dosexec|vnd.ms-excel|x-java-applet)|audio/.+|video/.+)\$"}"
 : "${ISBN_RET_SEPARATOR:=,}"
 
+# This is matched against normalized valid-looking ISBNs and any numbers that
+# match it are discarded.
+# The default value should match 0123456789 and any ISBN-10 that uses only one
+# digit (e.g. 1111111111 or 3333333333)
+: "${ISBN_BLACKLIST_REGEX="^(0123456789|([0-9xX])\\2{9})\$"}"
+
 # These options specify if and how we should reorder ISBN_DIRECT_GREP files
 # before passing them to find_isbns(). If true, the first
 # ISBN_GREP_RF_SCAN_FIRST lines of the files are passed as is, then we pass
@@ -111,6 +117,7 @@ handle_script_arg() {
 
 		--tested-archive-extensions=*) TESTED_ARCHIVE_EXTENSIONS="${arg#*=}" ;;
 		-i=*|--isbn-regex=*) ISBN_REGEX="${arg#*=}" ;;
+		--isbn-blacklist-regex=*) ISBN_BLACKLIST_REGEX="${arg#*=}" ;;
 		--isbn-direct-grep-files=*) ISBN_DIRECT_GREP_FILES="${arg#*=}" ;;
 		--isbn-ignored-files=*) ISBN_IGNORED_FILES="${arg#*=}" ;;
 		--reorder-files-for-grep=*)
@@ -284,6 +291,12 @@ find_isbns() {
 				echo "$isbn"
 			fi
 		done
+	} | {
+		if [ "$ISBN_BLACKLIST_REGEX" != "" ]; then
+			grep -vP "$ISBN_BLACKLIST_REGEX" || true
+		else
+			cat
+		fi
 	} | stream_concat "$ISBN_RET_SEPARATOR"
 }
 

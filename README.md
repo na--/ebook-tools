@@ -108,6 +108,11 @@ All of these options are part of the common library and may affect some or all o
 * `-i=<value>`, `--isbn-regex=<value>`; env. variable `ISBN_REGEX`; see default value in `lib.sh`
 
   This is the regular expression used to match ISBN-like numbers in the supplied books. It is matched with `grep -P`, so look-ahead and look-behind can be used. Also it is purposefully a bit loose (i.e. it can match some non-ISBN numbers), since the found numbers will be checked for validity. Due to unicode handling, the default value is too long for the readme, you can find it in `lib.sh`.
+
+* `--isbn-blacklist-regex=<value>`; env. variable `ISBN_BLACKLIST_REGEX`;  default value `^(0123456789|([0-9xX])\2{9})$
+
+  Any ISBNs that were matched by the `ISBN_REGEX` above and pass the ISBN validation algorithm are normalized and passed through this regular expression. Any ISBNs that successfully match against it are discarded. The idea is to ignore technically valid but probably wrong numbers like `0123456789`, `0000000000`, `1111111111`, etc.
+
 * `--isbn-direct-grep-files=<value>`; env. variable `ISBN_DIRECT_GREP_FILES`; default value `^text/(plain|xml|html)$`
 
   This is a regular expression that is matched against the MIME type of the searched files. Matching files are searched directly for ISBNs, without converting or OCR-ing them to `.txt` first.
