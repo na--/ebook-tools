@@ -191,9 +191,14 @@ All of these options are part of the common library and may affect some or all o
 * `-fsf=<value>`, `--file-sort-flags=<value>`; env. variable `FILE_SORT_FLAGS`; default value `()` (an empty bash array)
 
   A list with the [sort options](https://www.gnu.org/software/coreutils/manual/html_node/sort-invocation.html) that will be used every time multiple files are processed (i.e. in every script except `convert-to-txt.sh`).
+
 * `--debug-prefix-length=<value>`; env. variable `DEBUG_PREFIX_LENGTH`; default value `40`
 
   The length of the debug prefix used by the some scripts in the output when `VERBOSE` mode is enabled.
+
+* `--lib-hook=<path-fo-bash-file>`; not configurable with environment variables for security reasons
+
+  Warning: for advanced users with bash knowledge only! This option allows you to inject (i.e. `source`) bash files into all of the scripts in this collection. You can use this as a way to customize a script's internals, add functionality, make "plugins", etc. This isn't configurable from an environment variable for obvious security reasons, it explicitly has to be set via the CLI flag.
 
 
 ## Script usage and options

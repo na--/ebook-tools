@@ -147,6 +147,11 @@ handle_script_arg() {
 
 		--debug-prefix-length=*) DEBUG_PREFIX_LENGTH="${arg#*=}" ;;
 
+		--lib-hook=*)
+			# shellcheck source=/dev/null
+			source "${arg#*=}"
+		;;
+
 		-*) echo "Invalid option '$arg'"; exit 4; ;;
 	esac
 }
