@@ -45,7 +45,7 @@ To install and use the bare shell scripts, follow these steps:
 
 You need recent versions of:
 - `file`, `less`, `bash` 4.3+ and ***GNU*** `coreutils`, `awk`, `sed` and `grep`.
-- [calibre](https://calibre-ebook.com/) for fetching metadata from online sources, conversion to txt (for ISBN searching) and ebook metadata extraction. Versions **2.84** and above are preferred because of their ability to manually specify from which specific online source we want to fetch metadata. _For earlier versions you have to set `ISBN_METADATA_FETCH_ORDER` to an empty string._
+- [calibre](https://calibre-ebook.com/) for fetching metadata from online sources, conversion to txt (for ISBN searching) and ebook metadata extraction. Versions **2.84** and above are preferred because of their ability to manually specify from which specific online source we want to fetch metadata. _For earlier versions you have to set `ISBN_METADATA_FETCH_ORDER` and `ORGANIZE_WITHOUT_ISBN_SOURCES` to empty strings._
 - [p7zip](https://sourceforge.net/projects/p7zip/) for ISBN searching in ebooks that are in archives.
 - [Tesseract](https://github.com/tesseract-ocr/tesseract) for running OCR on books - version 4 gives better results even though it's still in alpha. OCR is disabled by default and another engine can be configured if preferred.
 - Optionally [poppler](https://poppler.freedesktop.org), [catdoc](http://www.wagner.pp.ru/~vitus/software/catdoc/) and [DjVuLibre](http://djvu.sourceforge.net/) can be installed for faster than calibre's conversion of `.pdf`, `.doc` and `.djvu` files respectively to `.txt`.
@@ -62,7 +62,7 @@ Here is how to install the packages on Debian (and Debian-based distributions li
   ```bash
   apt-get install file less bash coreutils gawk sed grep calibre p7zip-full tesseract-ocr tesseract-ocr-osd tesseract-ocr-eng python-lxml poppler-utils catdoc djvulibre-bin
   ```
-*Keep in mind that a lot of debian-based distributions do not have up-to-date packages and the scripts work best when calibre's version is at least 2.84. For earlier versions you have to set `ISBN_METADATA_FETCH_ORDER` to an empty string.*
+*Keep in mind that a lot of debian-based distributions do not have up-to-date packages and the scripts work best when calibre's version is at least 2.84. For earlier versions you have to set `ISBN_METADATA_FETCH_ORDER` and `ORGANIZE_WITHOUT_ISBN_SOURCES` to empty strings.*
 
 ## Docker
 
@@ -107,7 +107,7 @@ All of these options are part of the common library and may affect some or all o
 
 * `-i=<value>`, `--isbn-regex=<value>`; env. variable `ISBN_REGEX`; see default value in `lib.sh`
 
-  This is the regular expression used to match ISBN-like numbers in the supplied books. It is matched with `grep -P`, so look-ahead and look-behind can be used. Also it is purposefully a bit loose (i.e. it can match some non-ISBN numbers), since the found numbers will be checked for validity. Due to unicode handling, the default value is too long for the readme, you can find it in `lib.sh`.
+  This is the regular expression used to match ISBN-like numbers in the supplied books. It is matched with `grep -P`, so look-ahead and look-behind can be used. Also it is purposefully a bit loose (i.e. it can match some non-ISBN numbers), since the found numbers will be checked for validity. Due to unicode handling, the default value is too long for the README, you can find it in `lib.sh`.
 
 * `--isbn-blacklist-regex=<value>`; env. variable `ISBN_BLACKLIST_REGEX`;  default value `^(0123456789|([0-9xX])\2{9})$`
 
@@ -128,7 +128,7 @@ All of these options are part of the common library and may affect some or all o
 
   This option allows you to specify the online metadata sources and order in which the scripts will try searching in them for books by their ISBN. The actual search is done by calibre's `fetch-ebook-metadata` command-line application, so any custom calibre metadata [plugins](https://plugins.calibre-ebook.com/) can also be used. To see the currently available options, run `fetch-ebook-metadata --help` and check the description for the `--allowed-plugin` option.
 
-If you use Calibre versions that are older than 2.84, it's required to manually set this option to an empty string.
+  *If you use Calibre versions that are older than 2.84, it's required to manually set this option to an empty string.*
 
 #### Options for [OCR](https://en.wikipedia.org/wiki/Optical_character_recognition):
 
@@ -156,7 +156,7 @@ If you use Calibre versions that are older than 2.84, it's required to manually 
   A regular expression that is matched against the filename/author/title tokens and matching tokens are ignored. The default regular expression includes common words that probably hinder online metadata searching like `book`, `novel`, `series`, `volume` and others, as well as probable publication years like (so `1999` is ignored while `2033` is not). You can see it in `lib.sh`.
 * `-owis=<value>`, `--organize-without-isbn-sources=<value>`; env. variable `ORGANIZE_WITHOUT_ISBN_SOURCES`; default value `Goodreads,Amazon.com,Google`
 
-  This option allows you to specify the online metadata sources in which the scripts will try searching for books by non-ISBN metadata (i.e. author and title). The actual search is done by calibre's `fetch-ebook-metadata` command-line application, so any custom calibre metadata [plugins](https://plugins.calibre-ebook.com/) can also be used. To see the currently available options, run `fetch-ebook-metadata --help` and check the description for the `--allowed-plugin` option.
+  This option allows you to specify the online metadata sources in which the scripts will try searching for books by non-ISBN metadata (i.e. author and title). The actual search is done by calibre's `fetch-ebook-metadata` command-line application, so any custom calibre metadata [plugins](https://plugins.calibre-ebook.com/) can also be used. To see the currently available options, run `fetch-ebook-metadata --help` and check the description for the `--allowed-plugin` option. *Because Calibre versions older than 2.84 don't support the `--allowed-plugin` option, if you want to use such an old Calibre version you should manually set `ORGANIZE_WITHOUT_ISBN_SOURCES` to an empty string.*
 
   In contrast to searching by ISBNs, searching by author and title is done concurrently in all of the allowed online metadata sources. The number of sources is smaller because some metadata sources can be searched only by ISBN or return many false-positives when searching by title and author.
 
@@ -322,14 +322,15 @@ This script recursively scans the supplied folders for files and splits the foun
 
 ### Searching for ISBNs in files
 
-There are several different ways that a specific file can be searched for ISBN numbers. Each step requires progressively more "expensive" operations. If at some point ISBNs are found, they are returned or used without trying the remaining strategies. The regular expression used for matching ISBNs is in `ISBN_REGEX` (in `lib.sh`) and all matched numbers are verified for correct ISBN [check numbers](https://en.wikipedia.org/wiki/International_Standard_Book_Number#Check_digits). These are the steps:
+There are several different ways that a specific file can be searched for ISBN numbers. Each step requires progressively more "expensive" operations. If at some point ISBNs are found, they are returned or used without trying the remaining strategies. These are the actual steps in order:
 1. Check the supplied file name for ISBNs (the path is ignored).
 2. If the [MIME type](https://en.wikipedia.org/wiki/MIME) of the file matches `ISBN_DIRECT_GREP_FILES`, search the file contents directly for ISBNs. If the MIME type matches `ISBN_IGNORED_FILES`, the search stops with no results.
 3. Check the file metadata from calibre's `ebook-meta` tool for ISBNs.
-4. Try to extract the file as an archive with `7z`. If successful, recursively repeat all of these steps for all the extracted files.
-5. If the file is not an archive, try to convert it to a `.txt` file. Use calibre's `ebook-convert` unless a faster alternative is present - `pdftotext` from `poppler` for `.pdf` files, `catdoc` for `.doc` files or `djvutxt` for `.djvu` files.
-6. If OCR is enabled and the simple conversion to `.txt` fails or if its result is empty try OCR-ing the file. If the result is non-empty but does not contain ISBNs and `OCR_ENABLED` is set to `always`, run OCR as well.
+4. Try to extract the file as an archive with `7z`. If successful, recursively repeat all of these steps for all the extracted files. This is very useful for normal archives, but it also works for `.epup`, `.chm`, and other ebook filetypes that are actually archives of some type that `7z` supports. This method of searching them for ISBNs is typically much faster than the next step.
+5. If the file is not an archive, try to convert it to a `.txt` file. Use calibre's `ebook-convert` unless a faster alternative is present - `pdftotext` from `poppler` for `.pdf` files, `catdoc` for `.doc` files or `djvutxt` for `.djvu` files. Search the resulting `.txt` file for ISBNs directly.
+6. If OCR is enabled and the simple conversion to `.txt` fails or if its result is empty, try OCR-ing the file. If the simple conversion result is non-empty but does not contain ISBNs and `OCR_ENABLED` is set to `always`, run OCR as well.
 
+The regular expression used for matching ISBNs (`ISBN_REGEX` in [`lib.sh`](lib.sh)) is purposefully a bit broad, to catch as many potential ISBNs as possible. To reduce false positives, all matched numbers are verified for correct ISBN [check digits](https://en.wikipedia.org/wiki/International_Standard_Book_Number#Check_digits). Additionally, by default all matched numbers that pass the checks are filtered with the `ISBN_BLACKLIST_REGEX` regular expression. That way technically valid but probably wrong ISBNs like `0123456789`, `0000000000`, `1111111111`, etc. are discarded.
 
 # Limitations
 
