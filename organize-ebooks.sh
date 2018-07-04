@@ -29,7 +29,7 @@ print_help() {
 for arg in "$@"; do
 	case "$arg" in
 		-cco|--corruption-check-only) CORRUPTION_CHECK_ONLY=true ;;
-		-owi|--organize--without--isbn) ORGANIZE_WITHOUT_ISBN=true ;;
+		-owi|--organize-without-isbn) ORGANIZE_WITHOUT_ISBN=true ;;
 
 		-o=*|--output-folder=*) OUTPUT_FOLDER="${arg#*=}" ;;
 		-ofu=*|--output-folder-uncertain=*) OUTPUT_FOLDER_UNCERTAIN="${arg#*=}" ;;

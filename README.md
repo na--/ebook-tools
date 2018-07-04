@@ -214,7 +214,7 @@ This is probably the most versatile script in the repository. It can automatical
 
   A regular expression that specifies which file extensions will be tested with `7z t` for corruption.
 
-* `-owi`, `--organize--without--isbn`; env. variable `ORGANIZE_WITHOUT_ISBN`; default value `false`
+* `-owi`, `--organize-without-isbn`; env. variable `ORGANIZE_WITHOUT_ISBN`; default value `false`
 
   Specify whether the script will try to organize ebooks if there were no ISBN found in the book or if no metadata was found online with the retrieved ISBNs. If enabled, the script will first try to use calibre's `ebook-meta` command-line tool to extract the author and title metadata from the ebook file. The script will try searching the online metadata sources (`ORGANIZE_WITHOUT_ISBN_SOURCES`) by the extracted author & title and just by title. If there is no useful metadata or nothing is found online, the script will try to use the filename for searching.
 
